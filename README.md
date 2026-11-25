@@ -29,6 +29,7 @@ Early concept and architecture phase. No production implementation yet.
 - [Synchronization protocol](docs/synchronization-protocol.md)
 - [Portable synchronization core](docs/protocol-core.md)
 - [Append-only persistence journal](docs/persistence-journal.md)
+- [ESP32-C6 SD journal adapter](platform/esp32c6/README.md)
 
 ## Hardware prototypes
 
