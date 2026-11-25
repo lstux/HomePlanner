@@ -4,7 +4,7 @@ Routine du jour au poignet : étapes à cocher, compte à rebours, renard et lap
 avec la centrale ESP32-C6. Comme l'app Slovingo, elle se greffe sur le firmware
 [T-Watch-2020](https://github.com/lstux/T-Watch-2020) sans le modifier.
 
-**Statut : compilée en CI, jamais essayée sur une montre.**
+**Statut : compilée en CI (v1, v2, v3), jamais essayée sur une montre.**
 
 ## Installer
 

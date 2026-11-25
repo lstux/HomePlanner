@@ -45,3 +45,7 @@ The family routines (checklist, countdown, mascots) work offline on each device,
 ## License
 
 GNU General Public License v3.0. See [LICENSE](LICENSE).
+
+## Try it
+
+Step-by-step setup and test guide (French): [web/guide/](web/guide/index.html), published at <https://lstux.github.io/HomePlanner/guide/>. Watch app: [platform/twatch/](platform/twatch/README.md).
