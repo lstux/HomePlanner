@@ -98,7 +98,11 @@ JournalRecoveryResult JournaledSyncCore::recover() {
   healthy_ = false;
   recovered_ = false;
 
-  const std::uint64_t total = log_.size();
+  std::uint64_t total = 0;
+  if (!log_.size(total)) {
+    result.error = "journal size query failed";
+    return result;
+  }
   std::uint64_t offset = 0;
   while (offset < total) {
     const std::uint64_t remaining = total - offset;
