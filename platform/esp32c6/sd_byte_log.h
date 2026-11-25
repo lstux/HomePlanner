@@ -19,7 +19,7 @@ class SdByteLog : public ByteLog {
   bool begin();
   bool available() const;
 
-  std::uint64_t size() const;
+  bool size(std::uint64_t& result) const;
   bool readAt(std::uint64_t offset, void* data, std::size_t length);
   bool append(const void* data, std::size_t length);
   bool truncate(std::uint64_t length);
