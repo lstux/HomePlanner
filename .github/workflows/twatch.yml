@@ -1,0 +1,52 @@
+name: T-Watch app
+
+on:
+  push:
+    paths: ["platform/twatch/**", ".github/workflows/twatch.yml"]
+  pull_request:
+    paths: ["platform/twatch/**", ".github/workflows/twatch.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host tests
+        run: |
+          mkdir -p /tmp/aj
+          curl -fsSL -o /tmp/aj/ArduinoJson.h https://github.com/bblanchon/ArduinoJson/releases/download/v6.21.5/ArduinoJson-v6.21.5.h
+          cd platform/twatch
+          g++ -std=c++11 -Wall -Wextra -g -fsanitize=address,undefined -I/tmp/aj -Ihomeplanner tests/core_tests.cpp homeplanner/hp_core.cpp -o /tmp/core_tests
+          /tmp/core_tests
+
+  firmware:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [t-watch2020-v1, t-watch2020-v2, t-watch2020-v3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lstux/T-Watch-2020
+          path: watch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build firmware with the Home app
+        run: |
+          python -m pip install --upgrade platformio
+          platform/twatch/install.sh watch
+          pio run -d watch -e ${{ matrix.env }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: home-${{ matrix.env }}
+          path: |
+            watch/.pio/build/${{ matrix.env }}/firmware.bin
+            watch/.pio/build/${{ matrix.env }}/partitions.bin
+            watch/.pio/build/${{ matrix.env }}/bootloader.bin
