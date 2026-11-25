@@ -25,6 +25,9 @@ Early concept and architecture phase. No production implementation yet.
 - [Concept and scope](docs/concept.md)
 - [Architecture decisions](docs/architecture-decisions.md)
 - [SD-server technical review](docs/sd-server-review.md)
+- [SD-server HTTP review](docs/sd-server-http-review.md)
+- [Synchronization protocol](docs/synchronization-protocol.md)
+- [Portable synchronization core](docs/protocol-core.md)
 
 ## Hardware prototypes
 
