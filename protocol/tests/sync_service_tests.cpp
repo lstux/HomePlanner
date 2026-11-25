@@ -105,9 +105,43 @@ void testBatchLimit() {
   check(service.lastSequence() == 0, "rejected batch does not partially apply");
 }
 
-}  // namespace
 
+
+void testBoundedHistory() {
+  MemoryLog log;
+  home::JournaledSyncCore journal(log);
+  check(journal.recover().ok, "journal recovery succeeds");
+  home::SyncService service(journal);
+  const home::Command first = makeCommand("first", "create", 0, "v");
+  journal.apply(first);
+  home::Command c = first;
+  for (int i = 1; i <= 300; ++i) {
+    c.op_id = "op-" + std::to_string(i);
+    c.action = "set";
+    c.expected_revision = i;
+    c.payload = std::string(500, 'x');
+    check(journal.apply(c).result.status == home::ResultStatus::Applied,
+          "set applies");
+  }
+  check(journal.core().changes().size() <= home::SyncCore::kMaxHistoryBytes / 500,
+        "change history is bounded in bytes");
+  check(service.pull(0, 10).error == "snapshot_required",
+        "stale cursor requires a snapshot");
+  check(service.pull(300, 10).ok, "recent cursor can still pull");
+  check(journal.apply(first).result.status == home::ResultStatus::Conflict,
+        "evicted retry is never applied twice");
+  check(journal.core().lastSequence() == 301, "sequence unchanged by retry");
+
+  home::JournaledSyncCore replayed(log);
+  check(replayed.recover().ok, "replay succeeds");
+  check(replayed.core().lastSequence() == 301, "replay keeps the sequence");
+  check(replayed.core().find("routine_step", "step-first")->revision == 301,
+        "replay keeps the entity");
+}
+
+}  // namespace
 int main() {
+  testBoundedHistory();
   testPushThenPull();
   testDuplicatePushAndInvalidRequests();
   testBatchLimit();

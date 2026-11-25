@@ -80,6 +80,7 @@ CommandResult SyncCore::apply(const Command& command) {
                        command.entity_id, entity.revision, "created",
                        command.payload};
       changes_.push_back(change);
+      change_bytes_ += change.payload.size();
     }
   } else if (command.action == "set" || command.action == "delete") {
     if (current == entities_.end() || current->second.deleted) {
@@ -107,16 +108,44 @@ CommandResult SyncCore::apply(const Command& command) {
                        command.action == "set" ? "updated" : "deleted",
                        current->second.payload};
       changes_.push_back(change);
+      change_bytes_ += change.payload.size();
     }
   } else {
     result = rejected(command.op_id, "unsupported action");
   }
 
-  // Persisting this map is the responsibility of the future storage adapter.
-  // The in-memory core retains all definitive results for deterministic tests.
+  // Persisting this map is the responsibility of the storage adapter. Recovery
+  // replays the journal through the same bounds, so eviction is deterministic.
   StoredOperation stored = {command, result};
   operations_[command.op_id] = stored;
+  operation_order_.push_back(command.op_id);
+  operation_bytes_ += command.payload.size();
+  trimHistory();
   return result;
+}
+
+void SyncCore::trimHistory() {
+  // The newest entry is always kept, even if it exceeds the byte budget.
+  while (operation_order_.size() > 1 &&
+         (operation_order_.size() > kMaxOperations ||
+          operation_bytes_ > kMaxHistoryBytes)) {
+    std::map<std::string, StoredOperation>::iterator it =
+        operations_.find(operation_order_.front());
+    if (it != operations_.end()) {
+      operation_bytes_ -= it->second.command.payload.size();
+      operations_.erase(it);
+    }
+    operation_order_.pop_front();
+  }
+  while (changes_.size() > 1 &&
+         (changes_.size() > kMaxChanges || change_bytes_ > kMaxHistoryBytes)) {
+    change_bytes_ -= changes_.front().payload.size();
+    changes_.erase(changes_.begin());
+  }
+}
+
+const std::map<std::string, Entity>& SyncCore::entities() const {
+  return entities_;
 }
 
 const Entity* SyncCore::find(const std::string& entity_type,

@@ -19,6 +19,8 @@ The in-memory core currently implements:
 - A journal-backed service facade with bounded batch push (25 commands) and cursor-based pull (up to 100 changes per page).
 - Validation of empty/oversized push batches, invalid pull limits, and cursors ahead of the current sequence.
 
+RAM history is bounded (128 operation results, 64 changes, 24 KiB of payload each); entities are always kept. A pull behind the retained feed returns `snapshot_required`. A retry of an evicted operation is re-evaluated and ends as a revision conflict, so it is not applied twice; clients must treat that as "refresh and merge".
+
 Payloads are opaque strings for now. JSON parsing, domain validation, authorization, snapshots, retention, and HTTP transport are not part of this layer. The service facade assumes callers serialize access; it is not internally thread-safe.
 
 ## Build and run tests

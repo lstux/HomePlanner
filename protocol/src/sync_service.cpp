@@ -68,8 +68,13 @@ SyncService::PullResponse SyncService::pull(std::uint64_t after_cursor,
     return response;
   }
 
-  // The in-memory reference core retains the complete feed from sequence 1.
-  // A persistent implementation with retention will add snapshot_required.
+  // Only recent changes are retained: a client that is too far behind must
+  // download a snapshot instead of silently skipping history.
+  if (after_cursor < latest &&
+      (all.empty() || all.front().seq > after_cursor + 1)) {
+    response.error = "snapshot_required";
+    return response;
+  }
   std::size_t start = 0;
   while (start < all.size() && all[start].seq <= after_cursor) ++start;
 
