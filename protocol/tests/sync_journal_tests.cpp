@@ -23,7 +23,11 @@ void check(bool ok, const std::string& message) {
 
 class MemoryLog : public ByteLog {
  public:
-  std::uint64_t size() const { return bytes.size(); }
+  bool size(std::uint64_t& result) const {
+    if (fail_size) return false;
+    result = bytes.size();
+    return true;
+  }
   bool readAt(std::uint64_t offset, void* data, std::size_t length) {
     if (offset + length > bytes.size()) return false;
     std::memcpy(data, &bytes[static_cast<std::size_t>(offset)], length);
@@ -42,6 +46,7 @@ class MemoryLog : public ByteLog {
   bool sync() { return true; }
 
   std::vector<std::uint8_t> bytes;
+  bool fail_size = false;
 };
 
 Command makeCommand(const std::string& op, const std::string& action,
@@ -102,6 +107,22 @@ void testCorruptCompleteRecordFailsClosed() {
   check(!reader.healthy(), "corrupt journal is not marked healthy");
 }
 
+void testSizeFailureDoesNotLookLikeEmptyJournal() {
+  MemoryLog log;
+  JournaledSyncCore writer(log);
+  check(writer.recover().ok, "journal initially recovers");
+  check(writer.apply(makeCommand("persisted", "create", 0, "keep")).durable,
+        "record exists before size failure");
+
+  log.fail_size = true;
+  JournaledSyncCore reader(log);
+  const home::JournalRecoveryResult recovery = reader.recover();
+  check(!recovery.ok, "size query failure aborts recovery");
+  check(!reader.healthy(), "size query failure leaves journal unhealthy");
+  check(recovery.error == "journal size query failed",
+        "size query failure has a specific error");
+}
+
 void testRetryAfterRestartIsDuplicate() {
   MemoryLog log;
   const Command original = makeCommand("same-op", "create", 0, "ready");
@@ -127,6 +148,7 @@ int main() {
   testIncompleteTailIsTruncated();
   testCorruptCompleteRecordFailsClosed();
   testRetryAfterRestartIsDuplicate();
+  testSizeFailureDoesNotLookLikeEmptyJournal();
 
   if (failures) {
     std::cerr << failures << " test(s) failed\n";
