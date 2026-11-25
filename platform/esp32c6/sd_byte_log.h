@@ -29,6 +29,7 @@ class SdByteLog : public ByteLog {
   std::string path_;
   SemaphoreHandle_t mutex_;
   bool ready_;
+  int fd_;
 };
 
 }  // namespace home
