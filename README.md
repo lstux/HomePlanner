@@ -8,7 +8,7 @@ The first client is a responsive Progressive Web App (PWA). A home central devic
 
 ## Project status
 
-Early concept and architecture phase. No production implementation yet.
+Architecture and portable synchronization/persistence foundations are in place. The first ESP32-C6 storage test firmware is being prepared; hardware validation is still pending. No production application is available yet.
 
 ## Initial principles
 
@@ -30,6 +30,7 @@ Early concept and architecture phase. No production implementation yet.
 - [Portable synchronization core](docs/protocol-core.md)
 - [Append-only persistence journal](docs/persistence-journal.md)
 - [ESP32-C6 SD journal adapter](platform/esp32c6/README.md)
+- [ESP32-C6 journal test firmware](platform/esp32c6/test_firmware/README.md)
 
 ## Hardware prototypes
 
