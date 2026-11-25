@@ -28,6 +28,7 @@ Early concept and architecture phase. No production implementation yet.
 - [SD-server HTTP review](docs/sd-server-http-review.md)
 - [Synchronization protocol](docs/synchronization-protocol.md)
 - [Portable synchronization core](docs/protocol-core.md)
+- [Append-only persistence journal](docs/persistence-journal.md)
 
 ## Hardware prototypes
 
