@@ -2,6 +2,12 @@
 
 Application statique, sans étape de build : déployer le contenu de ce dossier à la racine d'un site **HTTPS**.
 
+## Déploiement GitHub Pages
+
+1. Dépôt GitHub → **Settings → Pages → Build and deployment → Source : GitHub Actions**.
+2. **Actions → Deploy PWA to GitHub Pages → Run workflow** (ensuite automatique à chaque modification de `web/` sur `main`).
+3. Adresse par défaut : `https://lstux.github.io/HomePlanner/`.
+
 ## Fonctionnalités
 
 - Routines matin / soir / vacances, proposées selon le jour et l'heure.
