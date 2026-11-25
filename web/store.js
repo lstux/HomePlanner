@@ -1,5 +1,6 @@
 // Stockage local (hors ligne d'abord).
 import { defaultConfig } from "./data.js";
+import { emptyLists } from "./lists.js";
 
 const CONFIG = "home.config.v1";
 const PROGRESS = "home.progress.v1";
@@ -29,3 +30,6 @@ export function loadProgress(today) {
 export const saveProgress = (p) => write(PROGRESS, p);
 export const loadMeta = () => read(META) || { central: "", rev: 0, dirty: false };
 export const saveMeta = (m) => write(META, m);
+const LISTS_KEY = "home.lists.v1";
+export const loadLists = () => ({ ...emptyLists(), ...(read(LISTS_KEY) || {}) });
+export const saveLists = (l) => write(LISTS_KEY, l);

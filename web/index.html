@@ -7,6 +7,7 @@
   <meta name="description" content="Tableau de bord familial local-first Home.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="./styles.css">
   <title>Home</title>
 </head>
@@ -17,6 +18,7 @@
   </header>
 
   <main id="home">
+    <button id="weather-chip" class="weather-chip" type="button" hidden></button>
     <nav id="members" class="chips" aria-label="Qui es-tu ?"></nav>
     <select id="routine-select" aria-label="Routine"></select>
 
@@ -38,6 +40,66 @@
     <p id="sync-state" class="sync-state" role="status" hidden></p>
   </main>
 
+  <main id="shopping" hidden>
+    <h1>Courses</h1>
+    <form id="shopping-form" class="row"><input id="shopping-input" type="text" maxlength="60" placeholder="Ajouter un article" aria-label="Article" autocomplete="off"><button class="button">Ajouter</button></form>
+    <p id="shopping-empty" class="muted">La liste est vide.</p>
+    <ul id="shopping-list" class="steps"></ul>
+    <button id="shopping-clear" class="link" type="button">Retirer les articles cochés</button>
+  </main>
+
+  <main id="weather" hidden>
+    <h1>Météo · <span id="weather-place"></span></h1>
+    <div id="weather-body">
+      <section class="mascot-zone"><p id="weather-advice" class="speech"></p><img id="weather-mascot" class="mascot" alt="" width="200" height="200"></section>
+      <section class="panel center"><strong id="weather-now" class="big"></strong><p id="weather-feel"></p></section>
+      <ul id="weather-days" class="forecast"></ul>
+      <p class="credit">Données : <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)</p>
+    </div>
+    <p id="weather-error" role="status"></p>
+    <details class="panel"><summary>Changer de ville</summary>
+      <form id="town-form" class="row"><input id="town-input" type="text" placeholder="Nom de la ville" aria-label="Ville"><button class="button">Chercher</button></form>
+      <ul id="town-results" class="results"></ul>
+      <button id="locate" class="button secondary" type="button">Utiliser ma position</button>
+    </details>
+  </main>
+
+  <main id="map-view" hidden>
+    <h1>La carte</h1>
+    <p class="eyebrow">OÙ EST… ?</p>
+    <nav id="map-people" class="chips"></nav>
+    <nav id="map-places" class="chips"></nav>
+    <p id="map-empty" class="muted">Commence par ajouter la maison.</p>
+    <p id="map-hint" class="spare" hidden>Touche la carte à l'endroit voulu.</p>
+    <div id="map" class="map"></div>
+    <section id="map-card" class="panel" hidden></section>
+    <form id="place-form" class="panel" hidden>
+      <label class="field"><span>Nom du lieu</span><input id="place-name" type="text" maxlength="40" required></label>
+      <label class="field"><span>Emoji</span><input id="place-emoji" type="text" maxlength="8"></label>
+      <label class="field"><span>Type</span><select id="place-kind"><option value="home">Maison</option><option value="outing">Où on va</option><option value="family">Chez un proche</option><option value="other">Autre</option></select></label>
+      <div class="row"><button class="button">Enregistrer</button><button id="place-cancel" class="button secondary" type="button">Annuler</button><button id="place-delete" class="button danger" type="button">Supprimer</button></div>
+    </form>
+    <button id="place-add" class="button" type="button">+ Ajouter un lieu</button>
+    <form id="place-search" class="row search"><input id="place-query" type="text" placeholder="Aller à une ville" aria-label="Ville" required><button class="button secondary">Chercher</button></form>
+  </main>
+
+  <main id="contacts" hidden>
+    <h1>La famille et les proches</h1>
+    <p id="contact-empty" class="muted">Aucun contact pour l'instant : papi, mamie, tata, tonton…</p>
+    <ul id="contact-list" class="steps"></ul>
+    <button id="contact-add" class="button" type="button">+ Ajouter un contact</button>
+    <form id="contact-form" class="panel" hidden>
+      <label class="field"><span>Prénom ou surnom</span><input id="contact-name" type="text" maxlength="30" required></label>
+      <label class="field"><span>Lien</span><input id="contact-relation" type="text" maxlength="30" placeholder="Mamie, tonton…"></label>
+      <label class="field"><span>Emoji</span><input id="contact-emoji" type="text" maxlength="8" placeholder="👵"></label>
+      <label class="field"><span>Téléphone</span><input id="contact-phone" type="tel" maxlength="24"></label>
+      <label class="field"><span>Habite à (lieu de la carte)</span><select id="contact-homeId"></select></label>
+      <label class="field"><span>En ce moment</span><select id="contact-nowId"></select></label>
+      <label class="field"><span>Note</span><input id="contact-note" type="text" maxlength="120"></label>
+      <div class="row"><button class="button">Enregistrer</button><button id="contact-cancel" class="button secondary" type="button">Annuler</button><button id="contact-delete" class="button danger" type="button">Supprimer</button></div>
+    </form>
+  </main>
+
   <main id="settings" hidden>
     <h1>Réglages</h1>
     <section class="panel">
@@ -51,6 +113,14 @@
       <div id="routine-list"></div>
       <button id="reset-config" class="link" type="button">Revenir aux routines par défaut</button>
     </section>
+    <section class="panel">
+      <h2>Mode adulte</h2>
+      <p class="muted">Un code protège les réglages, la remise à zéro, les contacts et les lieux. Les cases des routines restent libres. C'est un garde-fou, pas un coffre-fort.</p>
+      <p id="pin-state"></p>
+      <label class="field"><span>Nouveau code (4 à 8 chiffres)</span><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <button id="pin-remove" class="link" type="button">Retirer le code</button>
+    </section>
+    <p class="muted"><a href="./flash/">Installer le firmware d'une centrale (ordinateur)</a></p>
     <div class="save-bar">
       <button id="cancel-settings" class="button secondary" type="button">Annuler</button>
       <button id="save-settings" class="button" type="button">Enregistrer</button>
@@ -64,6 +134,14 @@
       <p id="server-state" role="status">Non configurée</p>
     </details>
   </main>
+  <nav id="tabs" class="tabs" aria-label="Rubriques">
+    <button type="button" data-view="home"><span>🏠</span>Routine</button>
+    <button type="button" data-view="shopping"><span>🛒</span>Courses</button>
+    <button type="button" data-view="weather"><span>🌤️</span>Météo</button>
+    <button type="button" data-view="map-view"><span>🗺️</span>Carte</button>
+    <button type="button" data-view="contacts"><span>👪</span>Famille</button>
+  </nav>
+  <script src="./vendor/leaflet/leaflet.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

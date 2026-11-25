@@ -1,6 +1,10 @@
-# HomePlanner ESP32-C6 firmware (0.3.0 prototype)
+# HomePlanner ESP32-C6 firmware (0.4.0 prototype)
 
 Target: Waveshare ESP32-C6-LCD-1.47 with ST7789 display and microSD.
+
+## Web flasher
+
+The Pages site serves `flash/`: install or update from Chrome/Edge on a computer, no PlatformIO needed (`tools/build_site.sh`). Leave "Erase device" unchecked when updating.
 
 ## First boot / Wi-Fi setup
 
@@ -26,7 +30,7 @@ Missing or damaged SD/journal storage no longer prevents Wi-Fi setup, HTTP diagn
 
 - `GET /api/v1/health` (public)
 - `GET /api/v1/sync/snapshot` (pairing key)
-- `POST /api/v1/sync/push` (pairing key; 1 to 4 commands, entity types `config` and `progress`, payload string up to 8 KiB)
+- `POST /api/v1/sync/push` (pairing key; 1 to 4 commands, entity types `config`, `progress` and `list` (ids `shopping`, `contacts`, `places`), payload string up to 12 KiB)
 - `POST /api/v1/ota` multipart field `firmware`, header `X-HomePlanner-OTA`
 - `GET /` or `/_cfg` setup portal (setup AP only)
 
@@ -44,6 +48,7 @@ The 4 MB layout retains two 1.625 MiB OTA application slots, a 640 KiB LittleFS-
 
 - Setup AP currently uses the shared prototype password `homeplan1`; do not use this firmware on an untrusted or shared radio environment.
 - The pairing key is a single household secret sent over plain HTTP: no members or roles. Keep the device on a trusted LAN; do not port-forward it.
+- Contacts (names, phone numbers, places) travel over plain HTTP and are stored unencrypted on the SD card.
 - RAM history is bounded, but the SD journal grows without compaction, so boot replay gets slower over time.
 - HTTP is unencrypted; OTA token transport is not suitable outside a trusted LAN.
 - No signed OTA manifest, anti-rollback, or post-boot health confirmation yet.

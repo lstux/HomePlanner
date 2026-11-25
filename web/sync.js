@@ -3,9 +3,12 @@
 // L'état local sert de file d'attente durable : à chaque cycle on lit
 // l'instantané de la centrale, on fusionne, puis on envoie ce qui diffère.
 //  - progression : par étape, la marque la plus récente gagne (+t cochée, -t décochée) ;
+//  - courses, contacts, lieux : par élément, la modification la plus récente gagne ;
 //  - réglages : contrôle de révision ; en cas de modifications des deux côtés, la centrale gagne.
 
-export const MAX_PAYLOAD = 8192; // octets, limite du firmware
+import { LISTS, mergeItems, prune } from "./lists.js";
+
+export const MAX_PAYLOAD = 12288; // octets, limite du firmware
 
 export function mergeMarks(a = {}, b = {}) {
   const out = { ...a };
@@ -28,12 +31,12 @@ export const validConfig = (c) => !!c && c.version === 1 && Array.isArray(c.memb
 const parse = (text) => { try { return JSON.parse(text); } catch { return null; } };
 const opId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-// app : { get config, set config, progress, meta, canApplyConfig(), save() }
+// app : { get config, set config, progress, lists, meta, canApplyConfig(), save() }
 // request(path, body?) : renvoie le JSON de la centrale ou lève une erreur.
 export async function syncOnce(app, request) {
   const snapshot = await request("/api/v1/sync/snapshot");
   const remote = new Map(snapshot.entities.map((e) => [`${e.type}/${e.id}`, e]));
-  const result = { configChanged: false, progressChanged: false, replacedLocalConfig: false, pending: false };
+  const result = { configChanged: false, progressChanged: false, listsChanged: false, tooBig: [], oldFirmware: false, replacedLocalConfig: false, pending: false };
   const meta = app.meta;
   if (meta.central !== snapshot.central_id) Object.assign(meta, { central: snapshot.central_id, rev: 0 });
 
@@ -85,5 +88,24 @@ export async function syncOnce(app, request) {
     }
   }
   app.save();
+  // 3. Listes partagées, en dernier : un ancien firmware les refuse sans bloquer le reste.
+  try { await syncLists(app, remote, push, result); }
+  catch (error) { if (error.status !== 400) throw error; result.oldFirmware = true; }
+  app.save();
   return result;
+}
+
+async function syncLists(app, remote, push, result) {
+  for (const name of LISTS) {
+    const found = remote.get(`list/${name}`);
+    const theirs = (found && !found.deleted && parse(found.payload)?.items) || {};
+    const mine = app.lists[name];
+    const merged = prune(mergeItems(mine, theirs));
+    if (stable(merged) !== stable(mine)) { app.lists[name] = merged; result.listsChanged = true; }
+    if (stable(merged) === stable(theirs)) continue;
+    const payload = JSON.stringify({ items: merged });
+    // Une liste trop grosse ne doit pas bloquer le reste.
+    if (new TextEncoder().encode(payload).length > MAX_PAYLOAD) result.tooBig.push(name);
+    else await push("list", name, found, payload);
+  }
 }

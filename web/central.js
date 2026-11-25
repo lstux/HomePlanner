@@ -20,7 +20,7 @@ async function request(path, body) {
   } catch { throw new Error("Centrale injoignable"); }
   if (response.status === 401) throw new Error("Code d'appairage refusé");
   if (response.status === 404) throw new Error("Firmware de la centrale à mettre à jour");
-  if (!response.ok) throw new Error("Erreur de la centrale (" + response.status + ")");
+  if (!response.ok) throw Object.assign(new Error("Erreur de la centrale (" + response.status + ")"), { status: response.status });
   return response.json();
 }
 
@@ -38,7 +38,9 @@ export function initCentral(app, onChange) {
     running = (async () => {
       try {
         const result = await syncOnce(app, request);
-        status(result.pending ? "Synchronisation en cours…" : "Synchronisé avec la maison", true);
+        if (result.oldFirmware) status("Courses et contacts non partagés : firmware de la centrale à mettre à jour.", false);
+        else if (result.tooBig.length) status("Une liste est trop longue pour la centrale : supprime des éléments.", false);
+        else status(result.pending ? "Synchronisation en cours…" : "Synchronisé avec la maison", true);
         onChange(result);
         if (result.pending) again = true;
       } catch (error) {

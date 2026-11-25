@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { syncOnce, mergeMarks } from "../sync.js";
 import { isDone, mark } from "../routine.js";
 import { defaultConfig } from "../data.js";
+import { emptyLists, upsert, remove, alive, prune, KEEP_DELETED_MS } from "../lists.js";
 
 // Centrale simulée : mêmes règles de révision que le cœur C++.
 function central() {
@@ -20,7 +21,7 @@ function central() {
   };
   return { entities, request };
 }
-const device = (date = "2026-11-26") => ({ config: defaultConfig(), progress: { date, done: {} },
+const device = (date = "2026-11-26") => ({ config: defaultConfig(), progress: { date, done: {} }, lists: emptyLists(),
   meta: { central: "", rev: 0, dirty: false }, canApplyConfig: () => true, save() {} });
 const KEY = "m1/school-morning";
 
@@ -83,4 +84,33 @@ test("conflit pendant l'envoi : résolu au cycle suivant", async () => {
   assert.ok(r.pending);
   await syncOnce(a, c.request);
   assert.deepEqual(a.progress.done[KEY], { lever: 1, dej: 2 });
+});
+
+test("listes : ajouts des deux côtés fusionnés, suppression propagée", async () => {
+  const c = central(), a = device(), b = device();
+  upsert(a.lists.shopping, "lait", { name: "Lait" }, 1000);
+  upsert(b.lists.shopping, "pain", { name: "Pain" }, 2000);
+  await syncOnce(a, c.request); await syncOnce(b, c.request); await syncOnce(a, c.request);
+  assert.equal(alive(a.lists.shopping).length, 2);
+  remove(a.lists.shopping, "lait", Date.now());
+  await syncOnce(a, c.request); await syncOnce(b, c.request);
+  assert.deepEqual(alive(b.lists.shopping).map((i) => i.id), ["pain"]);
+  assert.equal(b.lists.shopping.lait.name, undefined, "les données supprimées sont effacées");
+});
+
+test("listes : les vieilles suppressions sont purgées", () => {
+  const list = { a: { t: 1, x: 1 }, b: { t: 1, name: "x" } };
+  assert.deepEqual(Object.keys(prune(list, KEEP_DELETED_MS + 10)), ["b"]);
+});
+
+test("ancien firmware : routines synchronisées, listes signalées", async () => {
+  const c = central(), a = device();
+  upsert(a.lists.shopping, "lait", { name: "Lait" });
+  a.progress.done[KEY] = { lever: 100 };
+  const r = await syncOnce(a, async (path, body) => {
+    if (body?.commands[0].entity_type === "list") throw Object.assign(new Error("refus"), { status: 400 });
+    return c.request(path, body);
+  });
+  assert.ok(r.oldFirmware);
+  assert.ok(c.entities.has("progress/" + KEY));
 });

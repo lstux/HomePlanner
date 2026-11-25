@@ -10,8 +10,8 @@ namespace {
 
 constexpr char kAllowedOrigins[][36] = {"https://lstux.github.io",
                                         "https://homeplanner.lslinux.org"};
-constexpr size_t kMaxBody = 20000;
-constexpr size_t kMaxPayload = 8192;
+constexpr size_t kMaxBody = 28000;
+constexpr size_t kMaxPayload = 12288;
 constexpr size_t kMaxId = 64;
 constexpr size_t kMaxCommands = 4;
 constexpr size_t kMaxEntities = 64;
@@ -122,7 +122,8 @@ void handlePush() {
         !readString(item["action"], 8, c.action) ||
         !readString(item["payload"], kMaxPayload, c.payload) ||
         !item["expected_revision"].is<uint32_t>() ||
-        (c.entity_type != "config" && c.entity_type != "progress")) {
+        (c.entity_type != "config" && c.entity_type != "progress" &&
+         c.entity_type != "list")) {
       sendError(400, "invalid_command");
       return;
     }

@@ -66,3 +66,33 @@ summary { cursor: pointer; font-weight: 700; padding: 12px 0; }
 @media (prefers-reduced-motion: reduce) { .mascot.pop { animation: none; } #progress-bar { transition: none; } }
 .sync-state { text-align: center; font-size: 12px; color: #873a2b; }
 .sync-state[data-ok=true] { color: #315d4a; }
+body { padding-bottom: 76px; }
+h1 { font-size: 24px; }
+ul { list-style: none; padding: 0; }
+.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1100; display: flex; justify-content: center; background: #fff; border-top: 1px solid #dfe6dc; padding-bottom: env(safe-area-inset-bottom); }
+.tabs button { flex: 1; max-width: 120px; border: 0; background: none; padding: 8px 2px; font-size: 12px; font-weight: 700; color: #5f726a; }
+.tabs button span { display: block; font-size: 24px; }
+.tabs button[aria-current=true] { color: #243b35; background: #e4ebe2; }
+.save-bar { bottom: 0; }
+.weather-chip { width: 100%; text-align: left; border: 0; border-radius: 14px; background: #e5e9fb; padding: 10px 14px; margin-bottom: 10px; font-size: 14px; }
+.item { display: flex; gap: 8px; align-items: center; }
+.item .step { padding: 10px 14px; }
+.item .mini { flex: none; }
+#shopping-form input, #town-form input, .search input { flex: 1; }
+.search { margin-top: 12px; }
+.center { text-align: center; }
+.big { font-size: 56px; }
+.forecast li { display: grid; grid-template-columns: 1.4fr .5fr .9fr 1fr; align-items: center; gap: 6px; background: #fff; border-radius: 14px; padding: 12px; margin-bottom: 8px; text-transform: capitalize; }
+.forecast strong { text-align: right; }
+.day-icon { font-size: 26px; }
+.credit { font-size: 11px; color: #5f726a; text-align: center; }
+.results li { margin-bottom: 8px; }
+.map { height: 55vh; min-height: 300px; border-radius: 18px; margin-bottom: 12px; z-index: 0; }
+.pin span { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; background: #fff; border: 2px solid #243b35; border-radius: 99px; padding: 2px 8px; font-size: 24px; }
+#map-card h2 { margin-top: 0; }
+a.button { text-decoration: none; display: inline-block; }
+.button.danger { background: #fadccd; color: #7a2410; }
+.contact { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 18px; padding: 12px; }
+.call { font-size: 28px; text-decoration: none; background: #dcefdc; border-radius: 50%; width: 52px; height: 52px; display: grid; place-items: center; flex: none; }
+.contact .mini { flex: none; }
+form.panel .row { flex-wrap: wrap; }
