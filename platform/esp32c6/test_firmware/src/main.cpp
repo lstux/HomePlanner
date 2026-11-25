@@ -105,7 +105,7 @@ void handlePutValue() {
   const home::Entity* current=gJournal->core().find(kValueType,kValueId);
   const bool exists=current && !current->deleted;
   home::Command cmd;
-  cmd.op_id=String("web-")+String(esp_random(),HEX)+String(esp_random(),HEX);
+  cmd.op_id=(String("web-")+String(esp_random(),HEX)+String(esp_random(),HEX)).c_str();
   cmd.entity_type=kValueType; cmd.entity_id=kValueId;
   cmd.action=exists?"set":"create"; cmd.payload=value.c_str();
   cmd.expected_revision=exists?static_cast<int64_t>(current->revision):0;
