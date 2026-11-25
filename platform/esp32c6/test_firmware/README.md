@@ -1,92 +1,44 @@
-# HomePlanner ESP32-C6 server prototype
+# HomePlanner ESP32-C6 firmware (0.2.0 prototype)
 
-This PlatformIO target evolves the SD journal test into the first autonomous
-HomePlanner central firmware for the Waveshare ESP32-C6-LCD-1.47.
+Target: Waveshare ESP32-C6-LCD-1.47 with ST7789 display and microSD.
 
-## Current prototype scope
+## First boot / Wi-Fi setup
 
-- Mounts the microSD card without ever formatting it.
-- Replays `/sd/home/journal.bin` before enabling network writes.
-- Connects to the configured Wi-Fi network.
-- Exposes a small HTTP API on port 80:
-  - `GET /api/v1/health`
-  - `GET /api/v1/value`
-  - `PUT /api/v1/value` with JSON `{"value":"..."}`
-- Persists the prototype value through the existing journal.
-- Accepts firmware uploads at `POST /api/v1/ota` when the configured OTA token
-  is supplied in `X-HomePlanner-OTA`.
+The firmware initializes the display first, then attempts the saved Wi-Fi networks. If none are configured or reachable, it starts a setup access point:
 
-The API is deliberately small and is not yet the full synchronization protocol.
-The prototype value is a single shared setting, not the final household model.
+- SSID: `HomePlanner-XXXX` (suffix derived from the board MAC)
+- Prototype password: `homeplan1`
+- Portal: `http://192.168.4.1/` (also `http://192.168.4.1/_cfg`)
 
-## First setup
+Connect a phone or PC to that network, enter the home Wi-Fi SSID and password, then save. The device stores up to five networks in NVS and restarts. The setup AP password is currently a shared prototype default; this must be made configurable before wider deployment.
 
-Build and flash once from this directory:
+BOOT button: short press toggles the display backlight; hold for 5 seconds to clear saved Wi-Fi settings and restart into setup mode. Serial monitor is 115200 baud; `s` prints status, `x` clears Wi-Fi settings, and `ota-token <secret>` stores the OTA token in NVS.
 
-```sh
-pio run
-pio run -t upload
-pio device monitor
-```
+## Display and recovery behavior
 
-At the serial prompt, configure Wi-Fi and an OTA token:
+The ST7789 display is initialized before SD mounting. It shows boot progress and then Wi-Fi/IP, SD and journal status. The screen and SD share SPI2, matching the Waveshare sd-server board implementation.
 
-```text
-wifi YourWifiSSID YourWifiPassword
-ota-token choose-a-long-random-secret
-status
-```
+Missing or damaged SD/journal storage no longer prevents Wi-Fi setup, HTTP diagnostics, or the status screen from starting. The firmware never formats the microSD card automatically.
 
-The Wi-Fi and OTA token are stored in ESP32 NVS and survive reboot. The board
-then reconnects automatically. Use the IP printed by `status` or the serial
-log to reach the API from the same LAN.
+## API
 
-Do not use spaces in the SSID or password with this initial serial command
-format. A later provisioning screen will replace this development-only setup.
+- `GET /api/v1/health`
+- `GET /api/v1/value`
+- `PUT /api/v1/value` with `{"value":"..."}`
+- `POST /api/v1/ota` multipart field `firmware`, header `X-HomePlanner-OTA`
+- `GET /` or `/_cfg` setup portal (primarily intended for the setup AP)
 
-## API examples
+The CORS allow-list accepts the production PWA origin and localhost development origins.
 
-```sh
-curl http://C6-IP/api/v1/health
-curl http://C6-IP/api/v1/value
-curl -X PUT http://C6-IP/api/v1/value \
-  -H 'Content-Type: application/json' \
-  -d '{"value":"Hello from HomePlanner"}'
-```
+## Partitions
 
-The CORS allow-list currently contains `https://homeplanner.lslinux.org`.
-This does not make HTTP a secure context: a browser PWA hosted over HTTPS
-cannot call this HTTP API because of mixed-content restrictions. Use curl or a
-local HTTP development page for this milestone. HTTPS on the C6 (or a local
-reverse proxy) is the next transport milestone.
+The 4 MB layout retains two 1.625 MiB OTA application slots, a 640 KiB LittleFS-compatible data partition, and a 64 KiB coredump. Firmware must fit in either app slot. The Waveshare sd-server README reports a roughly 1.50 MiB binary, leaving little margin in this layout. The partition table is intentionally unchanged for this iteration; use the CI build size before considering a new layout.
 
-## OTA upload
+## Security / prototype limitations
 
-The endpoint expects a raw ESP32 application binary as multipart field
-`firmware`, with the OTA token header:
-
-```sh
-curl -X POST http://C6-IP/api/v1/ota \
-  -H 'X-HomePlanner-OTA: choose-a-long-random-secret' \
-  -F 'firmware=@.pio/build/esp32c6/firmware.bin'
-```
-
-The board restarts after a successful update. The partition table contains two
-OTA application slots. This first endpoint is LAN-only prototype code: it does
-not yet implement signed firmware manifests, anti-rollback, or post-boot
-health confirmation/rollback. Do not expose it to the Internet.
-
-## Safety and limitations
-
-- SD mounting uses `format_if_mount_failed = false`; no formatting is done.
-- If SD mount or journal recovery fails, network services do not start.
-- HTTP and the prototype value API are not authenticated. Keep the device on a
-  trusted LAN; do not port-forward it.
-- OTA requires a configured secret, but HTTP does not encrypt it. Use only on
-  the trusted LAN until HTTPS is implemented.
-- Wi-Fi serial provisioning is intentionally temporary and supports no spaces
-  in credentials.
-- The board display is not integrated yet.
-- Build and physical hardware validation are still required. OTA success,
-  reconnect behavior, SD endurance, and power-loss recovery have not yet been
-  validated on hardware.
+- Setup AP currently uses the shared prototype password `homeplan1`; do not use this firmware on an untrusted or shared radio environment.
+- Application API is not authenticated. Keep the device on a trusted LAN; do not port-forward it.
+- HTTP is unencrypted; OTA token transport is not suitable outside a trusted LAN.
+- No signed OTA manifest, anti-rollback, or post-boot health confirmation yet.
+- The portal currently accepts a manually entered SSID; it does not yet scan and list nearby networks.
+- Firmware build and physical validation are still required. Display offsets, colors, SD mounting, captive portal behavior, and OTA need checking on the actual board.
