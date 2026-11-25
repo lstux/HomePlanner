@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(home_sync_core
   src/sync_core.cpp
   src/sync_journal.cpp
+  src/sync_service.cpp
 )
 target_include_directories(home_sync_core PUBLIC include)
 
@@ -17,6 +18,10 @@ target_link_libraries(sync_core_tests PRIVATE home_sync_core)
 add_executable(sync_journal_tests tests/sync_journal_tests.cpp)
 target_link_libraries(sync_journal_tests PRIVATE home_sync_core)
 
+add_executable(sync_service_tests tests/sync_service_tests.cpp)
+target_link_libraries(sync_service_tests PRIVATE home_sync_core)
+
 enable_testing()
 add_test(NAME sync_core_tests COMMAND sync_core_tests)
 add_test(NAME sync_journal_tests COMMAND sync_journal_tests)
+add_test(NAME sync_service_tests COMMAND sync_service_tests)
