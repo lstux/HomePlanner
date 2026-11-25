@@ -10,10 +10,13 @@ namespace home {
 
 // Minimal append-only byte log abstraction. The platform adapter must make
 // append() write all bytes or report failure; sync() must flush them durably.
+// Size has an explicit error channel: a failed stat must never look like an
+// empty journal, which could otherwise cause the service to accept new writes
+// over data it failed to inspect.
 class ByteLog {
  public:
   virtual ~ByteLog() {}
-  virtual std::uint64_t size() const = 0;
+  virtual bool size(std::uint64_t& result) const = 0;
   virtual bool readAt(std::uint64_t offset, void* data, std::size_t length) = 0;
   virtual bool append(const void* data, std::size_t length) = 0;
   virtual bool truncate(std::uint64_t length) = 0;
