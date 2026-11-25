@@ -1,8 +1,9 @@
-import { dateKey, suggestRoutine, evaluate, formatDuration } from "./routine.js";
+import { dateKey, suggestRoutine, evaluate, formatDuration, isDone, mark } from "./routine.js";
 import { pickLine, SPARE_IDEAS } from "./mascots.js";
-import { loadConfig, saveConfig, loadProgress, saveProgress } from "./store.js";
+import { loadConfig, saveConfig, loadProgress, saveProgress, loadMeta, saveMeta } from "./store.js";
 import { defaultConfig } from "./data.js";
 import { initCentral } from "./central.js";
+import { stable } from "./sync.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -21,6 +22,7 @@ let manualRoutine = null;
 let reaction = null; // réaction temporaire à une case cochée / décochée
 let lineSeed = new Date().getDate();
 let lastState = "";
+const meta = loadMeta();
 
 const routine = () => config.routines.find((r) => r.id === manualRoutine) || suggestRoutine(config, new Date());
 const member = () => config.members.find((m) => m.id === memberId) || config.members[0];
@@ -73,7 +75,7 @@ function render() {
   if (spare) $("spare").textContent = `Tu as environ ${formatDuration(info.slack)} de marge : tu pourrais ${SPARE_IDEAS[now.getDate() % SPARE_IDEAS.length]}`;
 
   $("steps").replaceChildren(...r.steps.map((s) => {
-    const checked = !!done[s.id];
+    const checked = isDone(done, s.id);
     const button = el("button", { type: "button", className: "step" + (checked ? " done" : "") + (info.next?.id === s.id ? " next" : "") },
       el("span", { className: "step-icon", textContent: s.icon }),
       el("span", { className: "step-text" },
@@ -89,9 +91,11 @@ function render() {
 let reactionTimer;
 function toggle(s) {
   const done = doneMap();
-  if (done[s.id]) delete done[s.id]; else done[s.id] = new Date().toISOString();
+  const checked = !isDone(done, s.id);
+  done[s.id] = mark(done[s.id], checked);
   if (!saveProgress(progress)) $("speech").textContent = "Impossible d'enregistrer sur cet appareil.";
-  reaction = { type: done[s.id] ? "checked" : "unchecked", label: s.label };
+  reaction = { type: checked ? "checked" : "unchecked", label: s.label };
+  central.soon();
   lineSeed++;
   navigator.vibrate?.(30);
   $("mascot").classList.remove("pop"); void $("mascot").offsetWidth; $("mascot").classList.add("pop");
@@ -155,23 +159,37 @@ function show(view) {
   for (const id of ["home", "settings"]) $(id).hidden = id !== view;
   window.scrollTo(0, 0);
 }
-const refreshCentral = initCentral();
-$("open-settings").onclick = () => { draft = structuredClone(config); renderSettings(); show("settings"); refreshCentral(); };
-$("cancel-settings").onclick = () => { show("home"); render(); };
+const central = initCentral({
+  get config() { return config; },
+  set config(value) { config = value; },
+  get progress() { return progress; },
+  meta,
+  canApplyConfig: () => $("settings").hidden,
+  save() { saveConfig(config); saveProgress(progress); saveMeta(meta); },
+}, (result) => {
+  if (result.replacedLocalConfig) alert("Les réglages avaient aussi changé sur un autre appareil : ceux de la maison ont été repris.");
+  if ((result.configChanged || result.progressChanged) && !$("home").hidden) render();
+});
+$("open-settings").onclick = () => { draft = structuredClone(config); renderSettings(); show("settings"); };
+$("cancel-settings").onclick = () => { show("home"); render(); central.sync(); };
 $("add-member").onclick = () => { draft.members.push({ id: uid(), name: "" }); renderSettings(); };
 $("holidays").onchange = (e) => (draft.holidays = e.target.checked);
 $("reset-config").onclick = () => { if (confirm("Revenir aux routines par défaut ?")) { draft = defaultConfig(); renderSettings(); } };
 $("save-settings").onclick = () => {
   draft.members.forEach((m, i) => (m.name = m.name.trim() || `Enfant ${i + 1}`));
   draft.routines.forEach((r) => r.steps.forEach((s) => (s.label = s.label.trim() || "Étape")));
+  if (stable(draft) !== stable(config)) meta.dirty = true;
+  saveMeta(meta);
   config = draft; manualRoutine = null; reaction = null;
   if (!saveConfig(config)) { alert("Impossible d'enregistrer sur cet appareil."); return; }
-  show("home"); render();
+  show("home"); render(); central.sync();
 };
 $("routine-select").onchange = (e) => { manualRoutine = e.target.value; reaction = null; render(); };
-$("reset-day").onclick = () => { const d = doneMap(); for (const k in d) delete d[k]; saveProgress(progress); reaction = null; render(); };
+$("reset-day").onclick = () => { const d = doneMap(); for (const k in d) d[k] = mark(d[k], false); saveProgress(progress); reaction = null; render(); central.soon(); };
 
 render();
-setInterval(() => { if (!$("home").hidden) render(); }, 15000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("home").hidden) render(); });
+central.sync();
+function tick() { if (!document.hidden && !$("home").hidden) { render(); central.sync(); } }
+setInterval(tick, 15000);
+document.addEventListener("visibilitychange", tick);
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.error));

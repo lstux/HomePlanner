@@ -1,5 +1,5 @@
-const CACHE = "homeplanner-pwa-v3";
-const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js",
+const CACHE = "homeplanner-pwa-v4";
+const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./sync.js",
   "./manifest.webmanifest", "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./mascots/duo-walk.webp",
   ...["fox", "rabbit"].flatMap((who) => ["content", "bravo", "think", "comfort"].map((mood) => `./mascots/${who}-${mood}.webp`))];
 

@@ -35,6 +35,7 @@
     <img id="duo" class="duo" src="./mascots/duo-walk.webp" alt="Le renard et le lapin en route" width="300" height="300" hidden>
     <ol id="steps" class="steps"></ol>
     <button id="reset-day" class="link" type="button">Recommencer la routine</button>
+    <p id="sync-state" class="sync-state" role="status" hidden></p>
   </main>
 
   <main id="settings" hidden>
@@ -55,14 +56,12 @@
       <button id="save-settings" class="button" type="button">Enregistrer</button>
     </div>
     <details class="panel">
-      <summary>Centrale C6 (expérimental)</summary>
-      <p class="muted">Les routines restent sur cet appareil : elles ne sont pas encore synchronisées avec la C6.</p>
-      <label class="field"><span>Adresse locale</span><input id="server-url" type="url" placeholder="http://192.168.1.50"></label>
-      <button id="save-server" class="button secondary" type="button">Tester la connexion</button>
+      <summary>Synchronisation avec la maison</summary>
+      <p class="muted">Partage les réglages et la progression du jour entre les téléphones, via la centrale C6. Sur le premier téléphone connecté, ses réglages deviennent ceux de la maison ; les suivants les reprennent.</p>
+      <label class="field"><span>Adresse de la centrale (affichée sur son écran)</span><input id="server-url" type="url" placeholder="http://192.168.1.50"></label>
+      <label class="field"><span>Code d'appairage (affiché sur son écran)</span><input id="pairing-key" type="text" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>
+      <button id="save-server" class="button secondary" type="button">Connecter</button>
       <p id="server-state" role="status">Non configurée</p>
-      <label class="field"><span>Message partagé</span><textarea id="shared-value" rows="2" maxlength="256"></textarea></label>
-      <button id="save-value" class="button" type="button" disabled>Envoyer</button>
-      <p id="value-status" class="muted" role="status"></p>
     </details>
   </main>
   <script type="module" src="./app.js"></script>

@@ -16,11 +16,20 @@ Application statique, sans étape de build : déployer le contenu de ce dossier 
 - Plusieurs enfants, routines modifiables.
 - Fonctionne hors ligne après la première visite ; installable sur Android.
 
+## Synchronisation (firmware 0.3.0)
+
+Dans ⚙️ → « Synchronisation avec la maison » : adresse et code affichés sur l'écran de la C6. Chrome Android demande l'autorisation d'accéder au réseau local : accepter.
+
+- Progression : fusion étape par étape, la dernière action gagne (les horloges des téléphones doivent être à l'heure).
+- Réglages : si deux appareils les modifient avant de s'être synchronisés, ceux de la centrale gagnent.
+- Écart avec [le protocole](../docs/synchronization-protocol.md) : pas de file de commandes séparée (l'état local en tient lieu), instantané complet au lieu du flux `pull`.
+
 ## Limites
 
-- Données propres à chaque appareil : aucune synchronisation avec la C6 pour l'instant.
+- Sans centrale, les données restent propres à chaque appareil.
 - Réglages non protégés (pas de mode adulte).
-- La liaison C6 (réglages, « Centrale C6 ») n'a pas été essayée sur le matériel.
+- La liaison avec la C6 n'a pas été essayée sur le matériel.
+- Le code d'appairage circule en HTTP : réseau domestique de confiance uniquement.
 
 ## Développement
 

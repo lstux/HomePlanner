@@ -1,57 +1,74 @@
-// Liaison avec la centrale C6 (diagnostic et message partagé).
-const $ = (id) => document.getElementById(id);
-let server = "";
-try { server = localStorage.getItem("home.server") || ""; } catch {}
+// Liaison avec la centrale C6 : adresse, code d'appairage et planification de la synchro.
+import { syncOnce } from "./sync.js";
 
-function api(path, options = {}) {
+const $ = (id) => document.getElementById(id);
+const read = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+const keep = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+let server = read("home.server");
+let key = read("home.key");
+
+async function request(path, body) {
   const url = new URL(server + path);
   const local = ["localhost", "127.0.0.1"].includes(url.hostname);
-  const extra = {};
   // Chrome : autorise l'appel HTTP vers le réseau local depuis une page HTTPS (après accord de l'utilisateur).
-  if (location.protocol === "https:" && url.protocol === "http:" && !local) extra.targetAddressSpace = "local";
-  const headers = options.body ? { "Content-Type": "application/json" } : {};
-  return fetch(url, { ...options, ...extra, headers, signal: AbortSignal.timeout(20000) });
-}
-
-async function refresh() {
-  $("save-value").disabled = true;
-  if (!server) { $("server-state").textContent = "Non configurée"; return; }
-  $("server-state").textContent = "Vérification…";
+  const lan = location.protocol === "https:" && url.protocol === "http:" && !local ? { targetAddressSpace: "local" } : {};
+  const headers = { "X-HomePlanner-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) };
+  let response;
   try {
-    const response = await api("/api/v1/health");
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    const data = await response.json();
-    const healthy = !!data.ok && !!data.journal_healthy;
-    $("server-state").textContent = healthy ? `En ligne · firmware ${data.firmware}` : "En ligne, stockage indisponible";
-    if (!healthy) return;
-    const v = await api("/api/v1/value");
-    if (!v.ok) throw new Error("Lecture impossible");
-    const value = await v.json();
-    $("shared-value").value = value.value || "";
-    $("value-status").textContent = "Révision " + (value.revision ?? 0);
-    $("save-value").disabled = false;
-  } catch (error) {
-    $("server-state").textContent = "Inaccessible (" + error.message + ")";
-  }
+    response = await fetch(url, { ...lan, headers, method: body ? "POST" : "GET", body: body && JSON.stringify(body), signal: AbortSignal.timeout(15000) });
+  } catch { throw new Error("Centrale injoignable"); }
+  if (response.status === 401) throw new Error("Code d'appairage refusé");
+  if (response.status === 404) throw new Error("Firmware de la centrale à mettre à jour");
+  if (!response.ok) throw new Error("Erreur de la centrale (" + response.status + ")");
+  return response.json();
 }
 
-export function initCentral() {
+// app : voir syncOnce ; onChange(result) rafraîchit l'écran.
+export function initCentral(app, onChange) {
+  let running = null, again = false, timer;
+  const status = (text, ok) => {
+    for (const id of ["sync-state", "server-state"]) { $(id).textContent = text; $(id).dataset.ok = ok; }
+    $("sync-state").hidden = !server || !key;
+  };
+
+  function sync() {
+    if (!server || !key) { status("Non configurée", false); return Promise.resolve(); }
+    if (running) { again = true; return running; }
+    running = (async () => {
+      try {
+        const result = await syncOnce(app, request);
+        status(result.pending ? "Synchronisation en cours…" : "Synchronisé avec la maison", true);
+        onChange(result);
+        if (result.pending) again = true;
+      } catch (error) {
+        again = false;
+        app.save();
+        status(error.message + " · enregistré sur cet appareil", false);
+      } finally {
+        running = null;
+        if (again) { again = false; soon(); }
+      }
+    })();
+    return running;
+  }
+  function soon() { clearTimeout(timer); timer = setTimeout(sync, 800); }
+
   $("server-url").value = server;
+  $("pairing-key").value = key;
   $("save-server").addEventListener("click", () => {
     let value = $("server-url").value.trim().replace(/\/+$/, "");
     if (value && !/^https?:\/\//i.test(value)) value = "http://" + value;
+    try { if (value) new URL(value); } catch { status("Adresse invalide", false); return; }
     server = value; $("server-url").value = value;
-    try { localStorage.setItem("home.server", value); } catch {}
-    refresh();
+    key = $("pairing-key").value.trim().toUpperCase(); $("pairing-key").value = key;
+    keep("home.server", server); keep("home.key", key);
+    status("Connexion…", false);
+    // Depuis les réglages, on ne remplace pas la saisie en cours : synchro à la fermeture.
+    request("/api/v1/sync/snapshot").then(() => status("Connexion réussie. Ferme les réglages pour synchroniser.", true))
+      .catch((error) => status(error.message, false));
   });
-  $("save-value").addEventListener("click", async () => {
-    $("save-value").disabled = true;
-    try {
-      const response = await api("/api/v1/value", { method: "PUT", body: JSON.stringify({ value: $("shared-value").value }) });
-      if (!response.ok) throw new Error("Écriture refusée (" + response.status + ")");
-      $("value-status").textContent = "Enregistré · révision " + (await response.json()).revision;
-    } catch (error) { $("value-status").textContent = error.message; }
-    finally { $("save-value").disabled = false; }
-  });
-  return refresh;
+  window.addEventListener("online", soon);
+  status(server && key ? "Connexion à la maison…" : "Non configurée", false);
+  return { sync, soon };
 }
