@@ -4,214 +4,45 @@
 #include <Update.h>
 #include <WebServer.h>
 #include <WiFi.h>
-
-#include "driver/spi_master.h"
-#include "driver/sdspi_host.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
+#include <DNSServer.h>
+#include <ESPmDNS.h>
+#include "board.h"
+#include "pins.h"
+#include "config.h"
+#include "screen.h"
+#include "sd_byte_log.h"
+#include "home/sync_journal.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <stdio.h>
-
-#include "sd_byte_log.h"
-#include "home/sync_journal.h"
-
 namespace {
-constexpr int kPinSclk=7, kPinMosi=6, kPinMiso=5, kPinSdCs=4;
-constexpr spi_host_device_t kSpiHost=SPI2_HOST;
-constexpr const char* kMountPoint="/sd";
-constexpr const char* kJournalDir="/sd/home";
-constexpr const char* kJournalPath="/sd/home/journal.bin";
-constexpr char kValueType[]="setting";
-constexpr char kValueId[]="prototype-value";
+constexpr char kJournalDir[]="/sd/home", kJournalPath[]="/sd/home/journal.bin";
+constexpr char kValueType[]="setting", kValueId[]="prototype-value";
 constexpr char kAllowedOrigin[]="https://homeplanner.lslinux.org";
-constexpr size_t kMaxBody=2048;
-
-sdmmc_card_t* gCard=nullptr;
-home::SdByteLog* gLog=nullptr;
-home::JournaledSyncCore* gJournal=nullptr;
-Preferences gPrefs;
-WebServer gServer(80);
-String gSsid, gPassword, gOtaToken;
-bool gWifiStarted=false;
-bool gOtaWriting=false;
-
-bool mountSd() {
-  pinMode(kPinSdCs,OUTPUT); digitalWrite(kPinSdCs,HIGH);
-  spi_bus_config_t bus={};
-  bus.mosi_io_num=kPinMosi; bus.miso_io_num=kPinMiso; bus.sclk_io_num=kPinSclk;
-  bus.quadwp_io_num=-1; bus.quadhd_io_num=-1; bus.max_transfer_sz=4096;
-  esp_err_t err=spi_bus_initialize(kSpiHost,&bus,SPI_DMA_CH_AUTO);
-  if(err!=ESP_OK && err!=ESP_ERR_INVALID_STATE) {
-    Serial.printf("[SD] SPI init: %s\n",esp_err_to_name(err)); return false;
-  }
-  sdmmc_host_t host=SDSPI_HOST_DEFAULT(); host.slot=kSpiHost; host.max_freq_khz=20000;
-  sdspi_device_config_t slot=SDSPI_DEVICE_CONFIG_DEFAULT();
-  slot.gpio_cs=static_cast<gpio_num_t>(kPinSdCs); slot.host_id=kSpiHost;
-  esp_vfs_fat_mount_config_t cfg={}; cfg.format_if_mount_failed=false; cfg.max_files=5;
-  err=esp_vfs_fat_sdspi_mount(kMountPoint,&host,&slot,&cfg,&gCard);
-  if(err!=ESP_OK) { Serial.printf("[SD] Mount failed: %s (no format)\n",esp_err_to_name(err)); return false; }
-  Serial.printf("[SD] Mounted %s\n",gCard->cid.name); return true;
+constexpr uint32_t kStaTimeoutMs=12000;
+WebServer server(80); DNSServer dns; Preferences prefs;
+home::SdByteLog* logStore=nullptr; home::JournaledSyncCore* journal=nullptr;
+bool sdOk=false,journalOk=false,apMode=false,httpStarted=false,otaWriting=false,screenEnabled=true;
+String otaToken; uint32_t bootButtonAt=0; bool bootWasDown=false;
+void drawStatus(){String ip=apMode?WiFi.softAPIP().toString():WiFi.localIP().toString();String ssid=apMode?hpConfig.apSsid:WiFi.SSID();hpScreenStatus(sdOk,journalOk,apMode,ip,ssid);}
+void cors(){String origin=server.header("Origin");if(origin==kAllowedOrigin||origin.startsWith("http://localhost:")||origin.startsWith("http://127.0.0.1:")){server.sendHeader("Access-Control-Allow-Origin",origin);server.sendHeader("Vary","Origin");}server.sendHeader("Access-Control-Allow-Methods","GET, PUT, POST, OPTIONS");server.sendHeader("Access-Control-Allow-Headers","Content-Type, X-HomePlanner-OTA");}
+void sendJson(int code,JsonDocument& doc){String body;serializeJson(doc,body);cors();server.send(code,"application/json; charset=utf-8",body);}
+void sendError(int code,const char* msg){StaticJsonDocument<192>d;d["ok"]=false;d["error"]=msg;sendJson(code,d);}
+void handleHealth(){StaticJsonDocument<384>d;d["ok"]=true;d["product"]="Home";d["firmware"]="0.2.0-prototype";d["protocol_version"]=1;d["schema_version"]=1;d["storage"]="sd-journal";d["sd_mounted"]=sdOk;d["journal_healthy"]=journalOk&&journal&&journal->healthy();d["wifi_connected"]=!apMode&&WiFi.status()==WL_CONNECTED;d["ap_mode"]=apMode;d["ip"]=(apMode?WiFi.softAPIP():WiFi.localIP()).toString();d["last_sequence"]=journal?journal->core().lastSequence():0;sendJson(200,d);}
+void handleGetValue(){if(!journalOk||!journal||!journal->healthy()){sendError(503,"journal_unavailable");return;}StaticJsonDocument<512>d;d["ok"]=true;const home::Entity*e=journal->core().find(kValueType,kValueId);if(e&&!e->deleted){d["value"]=e->payload;d["revision"]=e->revision;}else{d["value"]="";d["revision"]=0;}sendJson(200,d);}
+void handlePutValue(){if(!journalOk||!journal||!journal->healthy()){sendError(503,"journal_unavailable");return;}if(!server.hasArg("plain")||server.arg("plain").length()>2048){sendError(400,"invalid_or_oversized_body");return;}StaticJsonDocument<512>in;if(deserializeJson(in,server.arg("plain"))||!in["value"].is<const char*>()){sendError(400,"invalid_json_or_value");return;}String value=in["value"].as<String>();if(value.length()>256){sendError(413,"value_too_long");return;}const home::Entity*cur=journal->core().find(kValueType,kValueId);bool exists=cur&&!cur->deleted;home::Command cmd;cmd.op_id=(String("web-")+String(esp_random(),HEX)+String(esp_random(),HEX)).c_str();cmd.entity_type=kValueType;cmd.entity_id=kValueId;cmd.action=exists?"set":"create";cmd.payload=value.c_str();cmd.expected_revision=exists?(int64_t)cur->revision:0;auto result=journal->apply(cmd);if(!result.durable){sendError(503,"journal_write_failed");return;}StaticJsonDocument<320>out;out["ok"]=true;out["value"]=value;out["revision"]=result.result.entity_revision;out["sequence"]=result.result.change_seq;sendJson(200,out);}
+void handleOptions(){cors();server.send(204,"text/plain","");}
+String portalPage(){return String(F("<!doctype html><html lang='fr'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>HomePlanner Wi-Fi</title><style>body{font:16px system-ui;max-width:520px;margin:32px auto;padding:0 18px;background:#101827;color:#f4f6fb}input,button{box-sizing:border-box;width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #526078}button{background:#49b6d2;color:#08121d;font-weight:700}</style><h1>HomePlanner</h1><p>Configuration du Wi-Fi</p><form method='post' action='/wifi'><label>Réseau Wi-Fi (SSID)</label><input name='ssid' maxlength='32' required><label>Mot de passe</label><input name='password' type='password' maxlength='63'><button>Enregistrer et redémarrer</button></form><p>Adresse du portail : 192.168.4.1</p></html>"));}
+void handlePortal(){server.send(200,"text/html; charset=utf-8",portalPage());}
+void handleWifiSave(){String ssid=server.arg("ssid"),pass=server.arg("password");ssid.trim();if(!ssid.length()||ssid.length()>32||pass.length()>63){server.send(400,"text/plain","SSID ou mot de passe invalide");return;}hpConfigAddNetwork(ssid,pass);hpConfigSave();server.send(200,"text/html; charset=utf-8","<meta charset=utf-8><h2>Configuration enregistrée</h2><p>Redémarrage...</p>");delay(900);ESP.restart();}
+void handleForget(){hpConfigClear();hpConfigSave();server.send(200,"text/plain","Wi-Fi effacé. Redémarrage...");delay(500);ESP.restart();}
+bool otaAuthorized(){return !otaToken.isEmpty()&&server.header("X-HomePlanner-OTA")==otaToken;}
+void handleOtaUpload(){if(!otaAuthorized())return;HTTPUpload&u=server.upload();if(u.status==UPLOAD_FILE_START){otaWriting=Update.begin(UPDATE_SIZE_UNKNOWN);if(!otaWriting)Update.printError(Serial);}else if(u.status==UPLOAD_FILE_WRITE){if(otaWriting&&Update.write(u.buf,u.currentSize)!=u.currentSize){Update.printError(Serial);otaWriting=false;Update.abort();}}else if(u.status==UPLOAD_FILE_END){if(otaWriting&&!Update.end(true))Update.printError(Serial);else Serial.printf("[OTA] %u bytes écrits\\n",u.totalSize);otaWriting=false;}else if(u.status==UPLOAD_FILE_ABORTED){Update.abort();otaWriting=false;}}
+void handleOtaResult(){if(!otaAuthorized()){sendError(401,"ota_token_required");return;}if(Update.hasError()){sendError(500,"ota_update_failed");return;}StaticJsonDocument<128>d;d["ok"]=true;d["message"]="update_valid_rebooting";sendJson(200,d);delay(500);ESP.restart();}
+void startHttp(){const char*headers[]={"Origin","X-HomePlanner-OTA"};server.collectHeaders(headers,2);server.on("/",HTTP_GET,handlePortal);server.on("/_cfg",HTTP_GET,handlePortal);server.on("/wifi",HTTP_POST,handleWifiSave);server.on("/_cfg/forget",HTTP_POST,handleForget);server.on("/api/v1/health",HTTP_GET,handleHealth);server.on("/api/v1/health",HTTP_OPTIONS,handleOptions);server.on("/api/v1/value",HTTP_GET,handleGetValue);server.on("/api/v1/value",HTTP_PUT,handlePutValue);server.on("/api/v1/value",HTTP_OPTIONS,handleOptions);server.on("/api/v1/ota",HTTP_POST,handleOtaResult,handleOtaUpload);server.onNotFound([](){if(apMode){server.sendHeader("Location","http://192.168.4.1/");server.send(302,"text/plain","");}else sendError(404,"not_found");});server.begin();httpStarted=true;Serial.println("[HTTP] server started");}
+void startAp(){apMode=true;WiFi.disconnect(true);WiFi.mode(WIFI_AP_STA);WiFi.softAP(hpConfig.apSsid.c_str(),hpConfig.apPassword.c_str());dns.start(53,"*",WiFi.softAPIP());if(!httpStarted)startHttp();Serial.printf("[WiFi] AP %s / %s ; portal http://192.168.4.1/\\n",hpConfig.apSsid.c_str(),hpConfig.apPassword.c_str());drawStatus();}
+bool connectKnown(){for(uint8_t i=0;i<hpConfig.count;i++){String ssid=hpConfig.networks[i].ssid;Serial.printf("[WiFi] trying %s\\n",ssid.c_str());WiFi.begin(ssid.c_str(),hpConfig.networks[i].password.c_str());uint32_t start=millis();while(WiFi.status()!=WL_CONNECTED&&millis()-start<kStaTimeoutMs)delay(100);if(WiFi.status()==WL_CONNECTED){apMode=false;Serial.printf("[WiFi] connected: %s\\n",WiFi.localIP().toString().c_str());return true;}WiFi.disconnect();}return false;}
+void handleButton(){bool down=digitalRead(PIN_BOOT)==LOW;if(down){if(!bootWasDown){bootWasDown=true;bootButtonAt=millis();}else if(millis()-bootButtonAt>5000){Serial.println("[CFG] clearing Wi-Fi settings");hpConfigClear();hpConfigSave();delay(300);ESP.restart();}}else if(bootWasDown){uint32_t held=millis()-bootButtonAt;if(held>30&&held<1500){screenEnabled=!screenEnabled;lcdBacklight(screenEnabled?70:0);if(screenEnabled)drawStatus();}bootWasDown=false;}}
 }
-bool ensureDirectory() {
-  struct stat st;
-  if(stat(kJournalDir,&st)==0) return S_ISDIR(st.st_mode);
-  if(errno!=ENOENT) return false;
-  return mkdir(kJournalDir,0755)==0;
-}
-void cors() {
-  gServer.sendHeader("Access-Control-Allow-Origin",kAllowedOrigin);
-  gServer.sendHeader("Vary","Origin");
-  gServer.sendHeader("Access-Control-Allow-Methods","GET, PUT, POST, OPTIONS");
-  gServer.sendHeader("Access-Control-Allow-Headers","Content-Type, X-HomePlanner-OTA");
-}
-void sendJson(int code, JsonDocument& doc) {
-  String body; serializeJson(doc,body); cors(); gServer.send(code,"application/json; charset=utf-8",body);
-}
-void sendError(int code,const char* message) {
-  StaticJsonDocument<192> doc; doc["ok"]=false; doc["error"]=message; sendJson(code,doc);
-}
-bool requireJournal() {
-  if(!gJournal || !gJournal->healthy()) { sendError(503,"journal_unavailable"); return false; }
-  return true;
-}
-void handleHealth() {
-  StaticJsonDocument<384> doc;
-  doc["ok"]=true; doc["product"]="Home"; doc["firmware"]="0.1.0-prototype";
-  doc["protocol_version"]=1; doc["schema_version"]=1;
-  doc["storage"]="sd-journal"; doc["journal_healthy"]=gJournal && gJournal->healthy();
-  doc["wifi_connected"]=WiFi.status()==WL_CONNECTED;
-  doc["ip"]=WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():"";
-  doc["last_sequence"]=gJournal?gJournal->core().lastSequence():0;
-  sendJson(200,doc);
-}
-void handleGetValue() {
-  if(!requireJournal()) return;
-  StaticJsonDocument<512> doc; doc["ok"]=true;
-  const home::Entity* e=gJournal->core().find(kValueType,kValueId);
-  if(e && !e->deleted) { doc["value"]=e->payload; doc["revision"]=e->revision; }
-  else { doc["value"]=""; doc["revision"]=0; }
-  sendJson(200,doc);
-}
-void handlePutValue() {
-  if(!requireJournal()) return;
-  if(gServer.hasArg("plain")==false || gServer.arg("plain").length()>kMaxBody) { sendError(400,"invalid_or_oversized_body"); return; }
-  StaticJsonDocument<512> input;
-  if(deserializeJson(input,gServer.arg("plain"))) { sendError(400,"invalid_json"); return; }
-  if(!input["value"].is<const char*>()) { sendError(400,"value_must_be_a_string"); return; }
-  String value=input["value"].as<String>();
-  if(value.length()>256) { sendError(413,"value_too_long_max_256"); return; }
-  const home::Entity* current=gJournal->core().find(kValueType,kValueId);
-  const bool exists=current && !current->deleted;
-  home::Command cmd;
-  cmd.op_id=(String("web-")+String(esp_random(),HEX)+String(esp_random(),HEX)).c_str();
-  cmd.entity_type=kValueType; cmd.entity_id=kValueId;
-  cmd.action=exists?"set":"create"; cmd.payload=value.c_str();
-  cmd.expected_revision=exists?static_cast<int64_t>(current->revision):0;
-  const home::JournalApplyResult result=gJournal->apply(cmd);
-  if(!result.durable) { sendError(503,"journal_write_failed"); return; }
-  StaticJsonDocument<384> out; out["ok"]=true; out["status"]=home::resultStatusName(result.result.status);
-  out["value"]=value; out["revision"]=result.result.entity_revision;
-  out["sequence"]=result.result.change_seq; sendJson(200,out);
-}
-void handleOptions() { cors(); gServer.send(204,"text/plain",""); }
-bool otaAuthorized() {
-  if(gOtaToken.isEmpty()) return false;
-  return gServer.header("X-HomePlanner-OTA")==gOtaToken;
-}
-void handleOtaResult() {
-  if(!otaAuthorized()) { sendError(401,"ota_token_required"); return; }
-  if(Update.hasError()) { sendError(500,"ota_update_failed"); return; }
-  StaticJsonDocument<128> doc; doc["ok"]=true; doc["message"]="update_valid_rebooting";
-  sendJson(200,doc); delay(500); ESP.restart();
-}
-void handleOtaUpload() {
-  if(!otaAuthorized()) return;
-  HTTPUpload& upload=gServer.upload();
-  if(upload.status==UPLOAD_FILE_START) {
-    if(gOtaWriting) { Update.abort(); }
-    gOtaWriting=true;
-    Serial.printf("[OTA] Start: %s\n",upload.filename.c_str());
-    if(!Update.begin(UPDATE_SIZE_UNKNOWN)) Update.printError(Serial);
-  } else if(upload.status==UPLOAD_FILE_WRITE) {
-    if(Update.write(upload.buf,upload.currentSize)!=upload.currentSize) Update.printError(Serial);
-  } else if(upload.status==UPLOAD_FILE_END) {
-    if(Update.end(true)) Serial.printf("[OTA] Written %u bytes\n",upload.totalSize);
-    else Update.printError(Serial);
-    gOtaWriting=false;
-  } else if(upload.status==UPLOAD_FILE_ABORTED) {
-    Update.abort(); gOtaWriting=false;
-  }
-}
-void setupHttp() {
-  const char* headers[]={"X-HomePlanner-OTA"}; gServer.collectHeaders(headers,1);
-  gServer.on("/api/v1/health",HTTP_GET,handleHealth);
-  gServer.on("/api/v1/value",HTTP_GET,handleGetValue);
-  gServer.on("/api/v1/value",HTTP_PUT,handlePutValue);
-  gServer.on("/api/v1/health",HTTP_OPTIONS,handleOptions);
-  gServer.on("/api/v1/value",HTTP_OPTIONS,handleOptions);
-  gServer.on("/api/v1/ota",HTTP_POST,handleOtaResult,handleOtaUpload);
-  gServer.onNotFound([](){ sendError(404,"not_found"); });
-  gServer.begin(); Serial.println("[HTTP] Listening on port 80");
-}
-void loadConfig() {
-  gPrefs.begin("homeplanner",false);
-  gSsid=gPrefs.getString("ssid","");
-  gPassword=gPrefs.getString("wifi","");
-  gOtaToken=gPrefs.getString("ota","");
-}
-void startWifi() {
-  if(gSsid.isEmpty()) { Serial.println("[WiFi] No credentials. Configure with: wifi <ssid> <password>"); return; }
-  WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true); WiFi.begin(gSsid.c_str(),gPassword.c_str());
-  gWifiStarted=true; Serial.printf("[WiFi] Connecting to %s",gSsid.c_str());
-}
-void serialCommands() {
-  if(!Serial.available()) return;
-  String line=Serial.readStringUntil('\n'); line.trim();
-  if(line.startsWith("wifi ")) {
-    int split=line.indexOf(' ',5);
-    if(split<0) { Serial.println("Usage: wifi <ssid> <password>"); return; }
-    gSsid=line.substring(5,split); gPassword=line.substring(split+1);
-    gPrefs.putString("ssid",gSsid); gPrefs.putString("wifi",gPassword);
-    Serial.println("[WiFi] Credentials saved. Restarting Wi-Fi.");
-    WiFi.disconnect(true); startWifi();
-  } else if(line.startsWith("ota-token ")) {
-    gOtaToken=line.substring(10); gOtaToken.trim(); gPrefs.putString("ota",gOtaToken);
-    Serial.println("[OTA] Token saved. Keep it private.");
-  } else if(line=="status") {
-    Serial.printf("wifi=%s ip=%s journal=%s seq=%llu\n",
-      WiFi.status()==WL_CONNECTED?"connected":"disconnected",
-      WiFi.localIP().toString().c_str(),
-      gJournal&&gJournal->healthy()?"healthy":"unavailable",
-      static_cast<unsigned long long>(gJournal?gJournal->core().lastSequence():0));
-  }
-}
-} // namespace
-
-void setup() {
-  Serial.begin(115200); delay(1000);
-  Serial.println("\nHomePlanner C6 server prototype 0.1.0");
-  loadConfig();
-  if(!mountSd() || !ensureDirectory()) { Serial.println("[FATAL] SD unavailable; server stays read-only/offline."); return; }
-  gLog=new home::SdByteLog(kJournalPath);
-  if(!gLog->begin()) { Serial.println("[FATAL] Journal open failed."); return; }
-  gJournal=new home::JournaledSyncCore(*gLog);
-  const home::JournalRecoveryResult recovery=gJournal->recover();
-  if(!recovery.ok) { Serial.printf("[FATAL] Journal recovery failed: %s\n",recovery.error.c_str()); return; }
-  Serial.printf("[JOURNAL] Recovered %llu bytes, seq=%llu\n",
-    static_cast<unsigned long long>(recovery.valid_bytes),
-    static_cast<unsigned long long>(gJournal->core().lastSequence()));
-  startWifi();
-}
-void loop() {
-  serialCommands();
-  if(WiFi.status()==WL_CONNECTED && !gWifiStarted) { gWifiStarted=true; }
-  static bool httpStarted=false;
-  if(WiFi.status()==WL_CONNECTED && !httpStarted) {
-    Serial.printf("[WiFi] Connected: %s\n",WiFi.localIP().toString().c_str());
-    setupHttp(); httpStarted=true;
-  }
-  if(httpStarted) gServer.handleClient();
-  delay(2);
-}
+void setup(){Serial.begin(115200);uint32_t wait=millis();while(!Serial&&millis()-wait<1800)delay(10);Serial.println("\\n=== HomePlanner C6 0.2.0 ===");pinMode(PIN_BOOT,INPUT_PULLUP);hpScreenMessage("BOOTING...","HomePlanner 0.2.0");if(!boardInit())Serial.println("[BOARD] LCD/SPI init failed");else hpScreenMessage("HOMEPLANNER","Hardware OK");hpConfigLoad();prefs.begin("homeplanner",false);otaToken=prefs.getString("ota","");prefs.end();hpScreenMessage("SD CARD","Mounting...");sdOk=sdMount(20000);if(sdOk){struct stat st;if(stat(kJournalDir,&st)!=0&&mkdir(kJournalDir,0755)!=0)Serial.printf("[SD] mkdir failed: %d\\n",errno);struct stat ds;if(stat(kJournalDir,&ds)==0&&S_ISDIR(ds.st_mode)){logStore=new home::SdByteLog(kJournalPath);if(logStore->begin()){journal=new home::JournaledSyncCore(*logStore);auto r=journal->recover();journalOk=r.ok;if(!r.ok)Serial.printf("[JOURNAL] recovery failed: %s\\n",r.error.c_str());else Serial.printf("[JOURNAL] recovered seq %llu\\n",(unsigned long long)journal->core().lastSequence());}else Serial.println("[JOURNAL] open failed");}}else Serial.println("[SD] unavailable; Wi-Fi diagnostics remain available");WiFi.persistent(false);WiFi.setSleep(false);WiFi.setHostname(hpConfig.hostname.c_str());WiFi.mode(WIFI_STA);hpScreenMessage("WIFI","Connecting...");if(connectKnown()){if(MDNS.begin(hpConfig.hostname.c_str()))MDNS.addService("http","tcp",80);startHttp();drawStatus();}else startAp();Serial.println("[READY] s=status, x=clear Wi-Fi, ota-token <secret>");}
+void loop(){if(apMode)dns.processNextRequest();if(httpStarted)server.handleClient();handleButton();static String line;while(Serial.available()){char c=(char)Serial.read();if(c=='\\r')continue;if(c=='\\n'){line.trim();if(line=="s")Serial.printf("mode=%s ip=%s sd=%s journal=%s heap=%u\\n",apMode?"AP":"STA",(apMode?WiFi.softAPIP():WiFi.localIP()).toString().c_str(),sdOk?"ok":"error",journalOk?"ok":"error",(unsigned)ESP.getFreeHeap());else if(line=="x"){hpConfigClear();hpConfigSave();ESP.restart();}else if(line.startsWith("ota-token ")){otaToken=line.substring(10);otaToken.trim();prefs.begin("homeplanner",false);prefs.putString("ota",otaToken);prefs.end();Serial.println("[OTA] token stored in NVS");}else if(line.length())Serial.println("Commands: s=status, x=clear Wi-Fi, ota-token <secret>");line="";}else if(line.length()<180)line+=c;}static uint32_t lastDraw=0;if(millis()-lastDraw>5000){lastDraw=millis();if(!apMode&&WiFi.status()!=WL_CONNECTED){Serial.println("[WiFi] lost; starting setup AP");startAp();}if(screenEnabled)drawStatus();}delay(5);}
