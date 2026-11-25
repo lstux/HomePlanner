@@ -40,8 +40,10 @@ The adapter uses the ESP-IDF VFS POSIX layer exposed by the existing FatFs mount
 - `open`, `read`, `write`, `lseek`, `stat`, `ftruncate`, and `fsync`.
 - Writes handle short writes and EINTR.
 - A FreeRTOS mutex serializes each adapter method.
-- `sync()` opens the journal and calls `fsync()`.
+- The adapter keeps one journal file descriptor open for its lifetime.
+- `sync()` calls `fsync()` on that descriptor.
 - Recovery truncation calls `ftruncate()` followed by `fsync()`.
+- Each individual adapter method is protected by a FreeRTOS mutex.
 
 The portable journal now submits a complete header+payload frame through one append call. The application service must still serialize the complete `JournaledSyncCore::apply()` operation; the adapter mutex only protects individual file operations.
 
@@ -49,7 +51,7 @@ ESP-IDF's FatFs documentation describes POSIX/VFS access and the `CONFIG_FATFS_I
 
 ## Important caveats
 
-- `fsync()` and `ftruncate()` availability/behavior must be confirmed by building against the exact pioarduino framework package.
+- `fsync()` and `ftruncate()` are part of the ESP-IDF FatFs/VFS POSIX integration, but their availability/behavior must still be confirmed by building against the exact pioarduino framework package.
 - The adapter does not detect physical card removal proactively; I/O failures cause operations to fail and the journal service must stop accepting writes.
 - A successful `fsync()` does not guarantee immunity to every SD-card controller or power-loss failure. Hardware fault-injection tests are required.
 - Do not allow the existing WebDAV/file manager and the Home journal to write the same journal path.
