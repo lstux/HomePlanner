@@ -1,24 +1,27 @@
-# ESP32-C6 SD journal test firmware
+# HomePlanner ESP32-C6 server prototype
 
-A deliberately small, standalone PlatformIO project for the Waveshare
-ESP32-C6-LCD-1.47. It mounts the microSD card, opens the HomePlanner journal,
-replays it after boot, and appends a simple persistent counter command.
+This PlatformIO target evolves the SD journal test into the first autonomous
+HomePlanner central firmware for the Waveshare ESP32-C6-LCD-1.47.
 
-It compiles the canonical protocol and adapter sources from the repository;
-it does not maintain copied forks of those files.
+## Current prototype scope
 
-## Safety
+- Mounts the microSD card without ever formatting it.
+- Replays `/sd/home/journal.bin` before enabling network writes.
+- Connects to the configured Wi-Fi network.
+- Exposes a small HTTP API on port 80:
+  - `GET /api/v1/health`
+  - `GET /api/v1/value`
+  - `PUT /api/v1/value` with JSON `{"value":"..."}`
+- Persists the prototype value through the existing journal.
+- Accepts firmware uploads at `POST /api/v1/ota` when the configured OTA token
+  is supplied in `X-HomePlanner-OTA`.
 
-- The SD mount uses `format_if_mount_failed = false`.
-- The firmware never formats the SD card.
-- It creates only `/sd/home` when that exact directory is absent.
-- If the mount, directory check, journal open, or recovery fails, no test
-  command is written.
-- Use a card with a backup. This is a write test, not a production firmware.
+The API is deliberately small and is not yet the full synchronization protocol.
+The prototype value is a single shared setting, not the final household model.
 
-## Build and flash
+## First setup
 
-Run from this directory:
+Build and flash once from this directory:
 
 ```sh
 pio run
@@ -26,34 +29,64 @@ pio run -t upload
 pio device monitor
 ```
 
-The project uses the same pioarduino stable platform URL and ESP32-C6 board
-target as the existing `sd-server` project. Its partition table is included
-locally with the same OTA/LittleFS layout, so this test project is self-contained.
+At the serial prompt, configure Wi-Fi and an OTA token:
 
-## Test procedure
+```text
+wifi YourWifiSSID YourWifiPassword
+ota-token choose-a-long-random-secret
+status
+```
 
-1. Insert a FAT16/FAT32 card and connect the board over USB.
-2. Flash the test firmware and open the serial monitor at 115200 baud.
-3. On boot, check that SD mount and journal recovery succeed.
-4. The firmware increments `test/boot-counter` once per boot and prints
-   its payload, entity revision, and global change sequence.
-5. Press `w` in the serial monitor to append another increment; press `s`
-   to print current state without writing.
-6. Reset the board. The counter and revision should be reconstructed from
-   the journal before the next increment is appended.
+The Wi-Fi and OTA token are stored in ESP32 NVS and survive reboot. The board
+then reconnects automatically. Use the IP printed by `status` or the serial
+log to reach the API from the same LAN.
 
-Expected behavior after successive successful boots: the counter, entity
-revision, and change sequence each increase by one. The journal file is
-`/sd/home/journal.bin`.
+Do not use spaces in the SSID or password with this initial serial command
+format. A later provisioning screen will replace this development-only setup.
 
-## Important limitations
+## API examples
 
-- This first harness validates normal append, flush, and replay. It does not
-  yet inject power loss, remove the card during writes, fill the volume, or
-  corrupt a complete record.
-- It uses serial output only; display integration is intentionally deferred
-  so the storage test has fewer moving parts.
-- The adapter and this firmware still need to be compiled with the exact
-  pioarduino package and exercised on physical hardware.
-- The project assumes the existing board's SPI2 pin mapping: SCLK 7, MOSI 6,
-  MISO 5, SD CS 4, with the SD clock initially set to 20 MHz.
+```sh
+curl http://C6-IP/api/v1/health
+curl http://C6-IP/api/v1/value
+curl -X PUT http://C6-IP/api/v1/value \
+  -H 'Content-Type: application/json' \
+  -d '{"value":"Hello from HomePlanner"}'
+```
+
+The CORS allow-list currently contains `https://homeplanner.lslinux.org`.
+This does not make HTTP a secure context: a browser PWA hosted over HTTPS
+cannot call this HTTP API because of mixed-content restrictions. Use curl or a
+local HTTP development page for this milestone. HTTPS on the C6 (or a local
+reverse proxy) is the next transport milestone.
+
+## OTA upload
+
+The endpoint expects a raw ESP32 application binary as multipart field
+`firmware`, with the OTA token header:
+
+```sh
+curl -X POST http://C6-IP/api/v1/ota \
+  -H 'X-HomePlanner-OTA: choose-a-long-random-secret' \
+  -F 'firmware=@.pio/build/esp32c6/firmware.bin'
+```
+
+The board restarts after a successful update. The partition table contains two
+OTA application slots. This first endpoint is LAN-only prototype code: it does
+not yet implement signed firmware manifests, anti-rollback, or post-boot
+health confirmation/rollback. Do not expose it to the Internet.
+
+## Safety and limitations
+
+- SD mounting uses `format_if_mount_failed = false`; no formatting is done.
+- If SD mount or journal recovery fails, network services do not start.
+- HTTP and the prototype value API are not authenticated. Keep the device on a
+  trusted LAN; do not port-forward it.
+- OTA requires a configured secret, but HTTP does not encrypt it. Use only on
+  the trusted LAN until HTTPS is implemented.
+- Wi-Fi serial provisioning is intentionally temporary and supports no spaces
+  in credentials.
+- The board display is not integrated yet.
+- Build and physical hardware validation are still required. OTA success,
+  reconnect behavior, SD endurance, and power-loss recovery have not yet been
+  validated on hardware.
