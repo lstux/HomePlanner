@@ -8,7 +8,7 @@ The first client is a responsive Progressive Web App (PWA). A home central devic
 
 ## Project status
 
-Architecture and portable synchronization/persistence foundations are in place. The first ESP32-C6 storage test firmware is being prepared; hardware validation is still pending. No production application is available yet.
+The portable synchronization/persistence foundations, first autonomous ESP32-C6 HTTP server prototype, and first installable PWA shell are now in the repository. The C6 firmware and browser-to-C6 path still require build and hardware validation; HTTPS on the C6 is the next transport milestone.
 
 ## Initial principles
 
