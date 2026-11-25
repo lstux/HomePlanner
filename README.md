@@ -30,7 +30,9 @@ The portable synchronization/persistence foundations, first autonomous ESP32-C6 
 - [Portable synchronization core](docs/protocol-core.md)
 - [Append-only persistence journal](docs/persistence-journal.md)
 - [ESP32-C6 SD journal adapter](platform/esp32c6/README.md)
-- [ESP32-C6 journal test firmware](platform/esp32c6/test_firmware/README.md)
+- [First autonomous prototype](docs/first-prototype.md)
+- [ESP32-C6 server firmware](platform/esp32c6/test_firmware/README.md)
+- [PWA source](web/)
 
 ## Hardware prototypes
 
