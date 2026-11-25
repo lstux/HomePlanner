@@ -27,8 +27,8 @@ pio device monitor
 ```
 
 The project uses the same pioarduino stable platform URL and ESP32-C6 board
-target as the existing `sd-server` project. The partition CSV is referenced
-from the existing project; this harness does not copy or modify it.
+target as the existing `sd-server` project. Its partition table is included
+locally with the same OTA/LittleFS layout, so this test project is self-contained.
 
 ## Test procedure
 
@@ -57,6 +57,3 @@ revision, and change sequence each increase by one. The journal file is
   pioarduino package and exercised on physical hardware.
 - The project assumes the existing board's SPI2 pin mapping: SCLK 7, MOSI 6,
   MISO 5, SD CS 4, with the SD clock initially set to 20 MHz.
-- The project points at the existing sd-server partition table. Verify that
-  path resolution is accepted by the local PlatformIO installation; if not,
-  use a local copy of that CSV and document the copy source.
