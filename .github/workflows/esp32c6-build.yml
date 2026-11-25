@@ -1,0 +1,28 @@
+name: ESP32-C6 firmware build
+
+on:
+  push:
+    paths:
+      - "platform/esp32c6/**"
+      - "protocol/**"
+      - ".github/workflows/esp32c6-build.yml"
+  pull_request:
+    paths:
+      - "platform/esp32c6/**"
+      - "protocol/**"
+      - ".github/workflows/esp32c6-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+      - name: Build ESP32-C6 firmware
+        working-directory: platform/esp32c6/test_firmware
+        run: pio run
