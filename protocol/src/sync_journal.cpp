@@ -189,9 +189,15 @@ JournalApplyResult JournaledSyncCore::apply(const Command& command) {
       makeHeader(static_cast<std::uint32_t>(payload.size()),
                  crc32(&payload[0], payload.size()));
 
-  if (!log_.append(&header[0], header.size()) ||
-      !log_.append(&payload[0], payload.size()) ||
-      !log_.sync()) {
+  // Submit the complete frame in one ByteLog append so another caller cannot
+  // insert bytes between the header and payload. The service must still
+  // serialize JournaledSyncCore::apply() as a whole.
+  std::vector<std::uint8_t> frame;
+  frame.reserve(header.size() + payload.size());
+  frame.insert(frame.end(), header.begin(), header.end());
+  frame.insert(frame.end(), payload.begin(), payload.end());
+
+  if (!log_.append(&frame[0], frame.size()) || !log_.sync()) {
     healthy_ = false;
     result.error = "journal append/flush failed; recovery required";
     return result;
