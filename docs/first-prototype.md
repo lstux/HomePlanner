@@ -8,6 +8,12 @@
 - The PWA must remain loadable when the C6 is offline.
 - No cloud account or remote database is required for shared household state.
 
+## Milestone 0.2 — C6 bring-up and Wi-Fi provisioning
+
+The Waveshare ST7789 display and shared SPI2/SD board support have been integrated. The display now reports boot, Wi-Fi, SD, and journal state. If no saved Wi-Fi network connects, the C6 starts a setup access point (`HomePlanner-XXXX`, prototype password `homeplan1`) with a captive DNS portal at `http://192.168.4.1/`. Up to five networks are stored in NVS. A missing SD card no longer prevents Wi-Fi setup and HTTP health diagnostics.
+
+The portal currently accepts a manually entered SSID; nearby-network scanning and a configurable AP password remain follow-up work. The screen and portal still need physical validation on the board.
+
 ## Milestone 0.1
 
 The C6 prototype now contains a journal-backed single shared value and these
