@@ -10,6 +10,8 @@ The first client is a responsive Progressive Web App (PWA). A home central devic
 
 The portable synchronization/persistence foundations, first autonomous ESP32-C6 HTTP server prototype, and first installable PWA shell are now in the repository. The C6 firmware and browser-to-C6 path still require build and hardware validation; HTTPS on the C6 is the next transport milestone.
 
+A first usable PWA feature, the family routines (checklist, countdown, mascots), works on a single device without the central. See [web/](web/README.md).
+
 ## Initial principles
 
 - Local-first: the system must remain useful without a cloud service.

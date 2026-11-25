@@ -12,32 +12,59 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">⌂</span><div><strong>Home</strong><small>HomePlanner</small></div></div>
-    <span id="connection" class="status status-unknown">Non connecté</span>
+    <div class="brand"><span class="brand-mark">⌂</span><strong>Home</strong></div>
+    <button id="open-settings" class="icon-button" type="button" aria-label="Réglages">⚙️</button>
   </header>
-  <main>
-    <section class="welcome">
-      <p class="eyebrow">LE TABLEAU DE BORD DE LA MAISON</p>
-      <h1>Bonjour !</h1>
-      <p>Un endroit simple pour retrouver les petites choses qui font tourner la maison.</p>
+
+  <main id="home">
+    <nav id="members" class="chips" aria-label="Qui es-tu ?"></nav>
+    <select id="routine-select" aria-label="Routine"></select>
+
+    <section class="mascot-zone">
+      <p id="speech" class="speech" role="status"></p>
+      <img id="mascot" class="mascot" alt="" width="220" height="220">
     </section>
-    <section class="panel">
-      <div class="panel-heading"><div><p class="eyebrow">CENTRAL DOMESTIQUE</p><h2>Ma Home C6</h2></div><button id="refresh" class="icon-button" aria-label="Actualiser">↻</button></div>
-      <p id="server-detail" class="muted">Configure l'adresse locale de ta C6 pour commencer.</p>
-      <label for="server-url">Adresse du serveur</label>
-      <div class="inline-field"><input id="server-url" type="url" placeholder="http://192.168.1.50" autocomplete="url"><button id="save-server" class="button secondary">Enregistrer</button></div>
-      <div class="server-meta"><span>État</span><strong id="server-state">Inconnu</strong><span>Dernière séquence</span><strong id="server-sequence">—</strong><span>Adresse IP</span><strong id="server-ip">—</strong></div>
+
+    <section id="clock" class="clock">
+      <div><span id="deadline-label"></span><strong id="countdown"></strong></div>
+      <div class="clock-side"><span id="status-label" class="badge"></span><small id="estimate"></small></div>
     </section>
-    <section class="panel">
-      <p class="eyebrow">PREMIER ESPACE PARTAGÉ</p>
-      <h2>Un petit mot pour la maison</h2>
-      <p class="muted">Cette valeur est enregistrée sur la carte SD de la C6 et reste disponible après redémarrage.</p>
-      <label for="shared-value">Message partagé</label>
-      <textarea id="shared-value" rows="3" maxlength="256" placeholder="Écris quelque chose…"></textarea>
-      <div class="actions"><span id="value-status" class="muted" role="status">En attente du serveur</span><button id="save-value" class="button" disabled>Enregistrer</button></div>
-    </section>
-    <p class="footnote">Les données partagées sont conservées par le serveur local. Cette application ne dépend pas d'un compte cloud.</p>
+
+    <div class="progress"><div class="track"><div id="progress-bar"></div></div><span id="progress-text"></span></div>
+    <p id="spare" class="spare" hidden></p>
+    <img id="duo" class="duo" src="./mascots/duo-walk.webp" alt="Le renard et le lapin en route" width="300" height="300" hidden>
+    <ol id="steps" class="steps"></ol>
+    <button id="reset-day" class="link" type="button">Recommencer la routine</button>
   </main>
-  <script src="./app.js" defer></script>
+
+  <main id="settings" hidden>
+    <h1>Réglages</h1>
+    <section class="panel">
+      <h2>La famille</h2>
+      <div id="member-list"></div>
+      <button id="add-member" class="button secondary" type="button">+ Ajouter un enfant</button>
+    </section>
+    <section class="panel">
+      <h2>Routines</h2>
+      <label class="inline"><input id="holidays" type="checkbox"> Mode vacances</label>
+      <div id="routine-list"></div>
+      <button id="reset-config" class="link" type="button">Revenir aux routines par défaut</button>
+    </section>
+    <div class="save-bar">
+      <button id="cancel-settings" class="button secondary" type="button">Annuler</button>
+      <button id="save-settings" class="button" type="button">Enregistrer</button>
+    </div>
+    <details class="panel">
+      <summary>Centrale C6 (expérimental)</summary>
+      <p class="muted">Les routines restent sur cet appareil : elles ne sont pas encore synchronisées avec la C6.</p>
+      <label class="field"><span>Adresse locale</span><input id="server-url" type="url" placeholder="http://192.168.1.50"></label>
+      <button id="save-server" class="button secondary" type="button">Tester la connexion</button>
+      <p id="server-state" role="status">Non configurée</p>
+      <label class="field"><span>Message partagé</span><textarea id="shared-value" rows="2" maxlength="256"></textarea></label>
+      <button id="save-value" class="button" type="button" disabled>Envoyer</button>
+      <p id="value-status" class="muted" role="status"></p>
+    </details>
+  </main>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
