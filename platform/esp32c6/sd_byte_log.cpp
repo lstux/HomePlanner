@@ -67,12 +67,13 @@ bool SdByteLog::begin() {
 
 bool SdByteLog::available() const { return ready_; }
 
-std::uint64_t SdByteLog::size() const {
+bool SdByteLog::size(std::uint64_t& result) const {
   Lock lock(mutex_);
-  if (!lock.ok() || !ready_ || fd_ < 0) return 0;
+  if (!lock.ok() || !ready_ || fd_ < 0) return false;
   struct stat st;
-  if (::fstat(fd_, &st) != 0 || st.st_size < 0) return 0;
-  return static_cast<std::uint64_t>(st.st_size);
+  if (::fstat(fd_, &st) != 0 || st.st_size < 0) return false;
+  result = static_cast<std::uint64_t>(st.st_size);
+  return true;
 }
 
 bool SdByteLog::readAt(std::uint64_t offset, void* data, std::size_t length) {
