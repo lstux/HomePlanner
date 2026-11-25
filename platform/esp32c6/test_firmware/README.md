@@ -1,4 +1,4 @@
-# HomePlanner ESP32-C6 firmware (0.2.0 prototype)
+# HomePlanner ESP32-C6 firmware (0.2.1 prototype)
 
 Target: Waveshare ESP32-C6-LCD-1.47 with ST7789 display and microSD.
 
@@ -13,6 +13,8 @@ The firmware initializes the display first, then attempts the saved Wi-Fi networ
 Connect a phone or PC to that network, enter the home Wi-Fi SSID and password, then save. The device stores up to five networks in NVS and restarts. The setup AP password is currently a shared prototype default; this must be made configurable before wider deployment.
 
 BOOT button: short press toggles the display backlight; hold for 5 seconds to clear saved Wi-Fi settings and restart into setup mode. Serial monitor is 115200 baud; `s` prints status, `x` clears Wi-Fi settings, and `ota-token <secret>` stores the OTA token in NVS.
+
+If the Wi-Fi link drops, the device waits 30 seconds before opening the setup access point. While nobody is connected to that access point, saved networks are retried every 2 minutes.
 
 ## Display and recovery behavior
 
