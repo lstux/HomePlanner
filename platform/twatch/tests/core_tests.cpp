@@ -86,6 +86,37 @@ void testMarks() {
   assert(q.date == p.date && q.done == p.done);
 }
 
+void testTimer() {
+  hp::Config config;
+  assert(hp::parseConfig(kConfig, config));
+  const hp::Routine& r = config.routines[0];  // lever 5, cheveux 2 (optional), dej 15
+  const int64_t t0 = 1795000020000LL;         // a full minute
+  const int seven = 7 * 60;
+  hp::Marks m;
+  hp::Evaluation e = hp::evaluate(r, m, seven, t0);
+  assert(!e.started && e.next == 0 && e.step_left == 300 && e.slack == 50 * 60);
+  assert(hp::evaluate(r, m, seven + 5, t0 + 300000).slack == 45 * 60);
+  m[hp::goKey("lever")] = t0;
+  e = hp::evaluate(r, m, seven + 5, t0 + 300000);
+  assert(e.started && !e.losing && e.step_left == 0 && e.slack == 50 * 60);
+  e = hp::evaluate(r, m, seven + 8, t0 + 480000);
+  assert(e.losing && e.step_left == -180 && e.slack == 47 * 60);
+  m["lever"] = t0 + 60000;
+  e = hp::evaluate(r, m, seven + 3, t0 + 180000);
+  assert(e.next == 2 && e.step_left == 15 * 60 - 120);
+  m[hp::goKey("cheveux")] = t0 + 200000;
+  e = hp::evaluate(r, m, seven + 4, t0 + 240000);
+  assert(e.next == 1 && e.losing);
+  m["dej"] = t0 + 300000;
+  e = hp::evaluate(r, m, 9 * 60, t0 + 7200000);
+  assert(e.state == hp::STATE_DONE && e.slack == (70 - 5) * 60);  // frozen
+  for (auto& item : m) item.second = hp::nextMark(item.second, false, t0 + 400000);
+  assert(!hp::evaluate(r, m, seven + 7, t0 + 420000).started);
+  assert(hp::gaugePercent(0) == 0 && hp::gaugePercent(450) == 50 && hp::gaugePercent(-5000) == -100);
+  assert(hp::gaugeText(30) == "Pile poil" && hp::gaugeText(510) == "8 min d'avance");
+  assert(hp::gaugeText(-200) == "3 min de retard" && hp::gaugeText(5820) == "1 h 37 d'avance");
+}
+
 void testSync() {
   FakeCentral central;
   hp::Progress watch;
@@ -118,6 +149,7 @@ void testSync() {
 int main() {
   testRoutines();
   testMarks();
+  testTimer();
   testSync();
   puts("watch core: all tests passed");
   return 0;
