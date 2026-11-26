@@ -26,8 +26,8 @@ python ~/.platformio/packages/tool-esptoolpy/esptool.py --port <PORT> --baud 921
 ## Régler
 
 1. Réglages Wi-Fi de la montre, et heure à jour (synchronisation NTP).
-2. App **home** → roue dentée : adresse de la centrale (**adresse IP**, par exemple `http://192.168.1.50` ;
-   les noms en `.local` ne sont pas résolus par la montre) et code affiché sur son écran.
+2. App **home** → roue dentée : adresse de la centrale (`http://homeplanner.local`, ou l'adresse IP si le nom
+   ne répond pas) et code affiché sur son écran.
 3. Flèche de retour : enregistre et synchronise.
 
 Ou préparer `data/homeplanner.json` d'après `conf/homeplanner.json.example`, puis
@@ -38,6 +38,8 @@ Ou préparer `data/homeplanner.json` d'après `conf/homeplanner.json.example`, p
 - Toucher une étape la coche ou la décoche (envoi après quelques secondes) ; l'ordre est libre.
 - Un appui long sur une étape lance son minuteur (« je fais celle-là ») ; sinon « C'est parti » lance
   la première, et chaque étape validée lance la suivante. La flèche » montre l'étape en cours.
+- Soir : le compte à rebours vise l'heure fixe du repas (décalée depuis un téléphone), et le temps libre
+  affiche ce qui reste avant.
 - Jauge : au milieu « pile poil », à droite l'avance, à gauche le retard (±15 min).
 - Bouton du haut : changer de routine ; bouton du bas (s'il y a plusieurs enfants) : changer d'enfant.
 - La montre garde réglages et coches pour fonctionner sans la maison ; elle ne modifie jamais les réglages.

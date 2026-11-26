@@ -14,6 +14,8 @@ struct Step {
   std::string id, label;
   int minutes = 0;
   bool optional = false;
+  bool free = false;  // free time: lasts what is left before the next fixed time
+  int at = -1;        // fixed time (minutes after midnight), -1 when none
 };
 
 struct Routine {
@@ -56,7 +58,10 @@ struct Evaluation {
   int next = -1;           // index of the current step, -1 when none
   bool started = false;    // the countdown of the current step is running
   bool losing = false;     // the current step overruns: the margin shrinks
-  int step_left = 0;       // seconds left for the current step, negative when over
+  int step_left = 0;       // seconds left (free time or wait included), negative when over
+  bool free = false;       // the current step is free time
+  bool waiting = false;    // the current step waits for its fixed time
+  int target = -1;         // index of the fixed-time step aimed at, -1 for the deadline
 };
 
 // Returns false (config untouched) when the JSON is not a usable configuration.
@@ -72,6 +77,12 @@ void mergeMarks(Marks& marks, const Marks& other);
 
 // Key of the "I am doing this step" mark.
 std::string goKey(const std::string& step);
+// Fixed time of a step today, a shift made on a phone included; -1 when none.
+int stepTime(const Step& step, const Marks& marks);
+// "http://name.local:81" -> "name"; empty when the host is not a .local name.
+std::string mdnsName(const std::string& url);
+// The same address with the .local host replaced.
+std::string withHost(const std::string& url, const std::string& host);
 // now_ms (0 if unknown) gives the seconds and runs the step countdown.
 Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day, int64_t now_ms = 0);
 // Gauge of the schedule: -100 (15 min late) ... 0 (on time) ... 100 (15 min ahead).

@@ -117,6 +117,44 @@ void testTimer() {
   assert(hp::gaugeText(-200) == "3 min de retard" && hp::gaugeText(5820) == "1 h 37 d'avance");
 }
 
+void testEvening() {
+  const char* json = R"({"version":1,"members":[{"id":"m1","name":"A"}],"routines":[{"id":"e","period":"evening",
+    "deadline":"20:30","steps":[{"id":"douche","minutes":15},{"id":"libre","minutes":0,"free":true},
+    {"id":"repas","minutes":30,"at":"19:00"},{"id":"dents","minutes":5}]}]})";
+  hp::Config config;
+  assert(hp::parseConfig(json, config));
+  const hp::Routine& r = config.routines[0];
+  assert(r.steps[1].free && r.steps[2].at == 19 * 60 && r.steps[0].at == -1);
+  const int64_t base = 1795000020000LL;  // a full minute, taken as 18:00
+  const auto ms = [&](int h, int m) { return base + static_cast<int64_t>((h - 18) * 60 + m) * 60000; };
+  const auto run = [&](const hp::Marks& m, int h, int min) { return hp::evaluate(r, m, h * 60 + min, ms(h, min)); };
+  hp::Marks m;
+  hp::Evaluation e = run(m, 18, 30);
+  assert(e.target == 2 && e.slack == 15 * 60 && e.next == 0);
+  m["douche"] = ms(18, 40);
+  e = run(m, 18, 50);
+  assert(e.next == 1 && e.free && e.step_left == 10 * 60 && !e.losing);
+  e = run(m, 19, 10);
+  assert(e.next == 2 && e.target == -1 && e.started && e.step_left == 20 * 60 && e.slack == 55 * 60);
+  m["libre"] = ms(18, 55);
+  e = run(m, 18, 55);
+  assert(e.next == 2 && e.waiting && e.step_left == 5 * 60);
+  m["_at:repas:19:20"] = ms(18, 50);
+  m["_at:repas:19:15"] = ms(18, 56);
+  assert(hp::stepTime(r.steps[2], m) == 19 * 60 + 15);
+  assert(run(m, 19, 5).step_left == 10 * 60);
+  m[hp::goKey("repas")] = ms(19, 6);
+  e = run(m, 19, 7);
+  assert(e.started && !e.waiting && e.target == -1);
+  e = hp::evaluate(r, hp::Marks(), 19 * 60 + 5, ms(19, 5));
+  assert(e.state == hp::STATE_PASSED && e.next == 0);
+  assert(hp::mdnsName("http://HomePlanner.local") == "homeplanner");
+  assert(hp::mdnsName("http://homeplanner.local:80/x") == "homeplanner");
+  assert(hp::mdnsName("http://192.168.1.5").empty() && hp::mdnsName("local").empty());
+  assert(hp::withHost("http://homeplanner.local:81", "10.0.0.2") == "http://10.0.0.2:81");
+  assert(hp::withHost("http://a.local", "10.0.0.2") == "http://10.0.0.2");
+}
+
 void testSync() {
   FakeCentral central;
   hp::Progress watch;
@@ -150,6 +188,7 @@ int main() {
   testRoutines();
   testMarks();
   testTimer();
+  testEvening();
   testSync();
   puts("watch core: all tests passed");
   return 0;

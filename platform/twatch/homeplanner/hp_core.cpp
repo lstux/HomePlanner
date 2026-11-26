@@ -71,6 +71,9 @@ bool parseConfig(const char* json, Config& config) {
       step.label = text(s["label"]);
       step.minutes = s["minutes"] | 0;
       step.optional = s["optional"] | false;
+      step.free = s["free"] | false;
+      int at_hour = 0, at_minute = 0;
+      if (sscanf(text(s["at"]).c_str(), "%d:%d", &at_hour, &at_minute) == 2) step.at = at_hour * 60 + at_minute;
       if (!step.id.empty()) routine.steps.push_back(step);
     }
     if (!routine.id.empty()) parsed.routines.push_back(routine);
@@ -116,52 +119,114 @@ void mergeMarks(Marks& marks, const Marks& other) {
 
 std::string goKey(const std::string& step) { return "_go:" + step; }
 
+int stepTime(const Step& step, const Marks& marks) {
+  if (step.at < 0) return -1;
+  const std::string prefix = "_at:" + step.id + ":";
+  int time = step.at;
+  int64_t latest = 0;
+  for (auto it = marks.lower_bound(prefix); it != marks.end() && it->first.compare(0, prefix.size(), prefix) == 0; ++it) {
+    int hour = 0, minute = 0;
+    if (it->second > latest && sscanf(it->first.c_str() + prefix.size(), "%d:%d", &hour, &minute) == 2) {
+      latest = it->second;
+      time = hour * 60 + minute;
+    }
+  }
+  return time;
+}
+
+// Same rules as evaluate() in web/routine.js.
 Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day, int64_t now_ms) {
   Evaluation e;
-  int mandatory = 0, first = -1, focus = -1;
+  const std::vector<Step>& steps = routine.steps;
+  const int count = static_cast<int>(steps.size());
+  const int second = now_ms > 0 ? static_cast<int>(now_ms / 1000 % 60) : 0;
+  const int now_s = minute_of_day * 60 + second;
+  const auto mandatoryStep = [&](int i) { return !steps[i].optional && !steps[i].free; };
+  const auto done = [&](int i) { return isDone(marks, steps[i].id); };
+  const auto went = [&](int i) {
+    const int64_t go = markOf(marks, goKey(steps[i].id));
+    return go > kRealTime ? go : static_cast<int64_t>(0);
+  };
+  const auto due = [&](int i) { return stepTime(steps[i], marks) * 60 <= now_s; };
+  // A fixed-time step has begun when started by hand, or when it is time and all before it is done.
+  const auto begun = [&](int i) {
+    if (went(i)) return true;
+    if (!due(i)) return false;
+    for (int j = 0; j < i; ++j)
+      if (mandatoryStep(j) && !done(j)) return false;
+    return true;
+  };
+  // Free time is over once the fixed time that follows it has come.
+  const auto expired = [&](int i) {
+    for (int j = i + 1; j < count; ++j)
+      if (steps[j].at >= 0) return done(j) || due(j);
+    return routine.deadline * 60 <= now_s;
+  };
+
+  int mandatory = 0, first = -1, any = -1, focus = -1;
   int64_t focus_at = 0, since = 0, last_mandatory = 0;
   bool started = false;
-  for (size_t i = 0; i < routine.steps.size(); ++i) {
-    const Step& step = routine.steps[i];
-    const int64_t mark = markOf(marks, step.id), go = markOf(marks, goKey(step.id));
+  for (int i = 0; i < count; ++i) {
+    const int64_t mark = markOf(marks, steps[i].id), go = markOf(marks, goKey(steps[i].id));
     if (magnitude(mark) > kRealTime && magnitude(mark) > since) since = magnitude(mark);
     if (magnitude(go) > kRealTime && magnitude(go) > since) since = magnitude(go);
     if (mark > kRealTime || go > kRealTime) started = true;
     ++e.total;
-    if (mark > 0) {
+    if (mandatoryStep(i) && mark > last_mandatory) last_mandatory = mark;
+    if (done(i)) {
       ++e.done;
-      if (!step.optional && mark > last_mandatory) last_mandatory = mark;
       continue;
     }
-    if (go > kRealTime && go > focus_at) {
-      focus_at = go;
-      focus = static_cast<int>(i);
+    if (mandatoryStep(i)) ++mandatory;
+    if (e.target < 0 && steps[i].at >= 0 && !begun(i)) e.target = i;
+    if (steps[i].free && expired(i)) continue;
+    if (went(i) > focus_at) {
+      focus_at = went(i);
+      focus = i;
     }
-    if (first < 0 || (routine.steps[first].optional && !step.optional)) first = static_cast<int>(i);
-    if (!step.optional) {
-      ++mandatory;
-      e.remaining += step.minutes;
-    }
+    if (any < 0) any = i;
+    if (first < 0 && (!steps[i].optional || steps[i].free)) first = i;
   }
-  e.next = focus >= 0 ? focus : first;
-  e.started = started && e.next >= 0;
-  int remaining = e.remaining * 60;
+  e.next = focus >= 0 ? focus : first >= 0 ? first : any;
+
+  int elapsed = 0;
   if (e.next >= 0) {
-    const Step& step = routine.steps[e.next];
+    const Step& step = steps[e.next];
+    e.free = step.free;
+    e.waiting = step.at >= 0 && !begun(e.next);
+    if (step.at >= 0 && !e.waiting && !went(e.next) && now_ms > 0) {  // began on time
+      const int64_t at_ms = now_ms - static_cast<int64_t>(now_s - stepTime(step, marks) * 60) * 1000;
+      if (at_ms > since) since = at_ms;
+      started = true;
+    }
+    e.started = started && !e.waiting;
     const int64_t gone = e.started && now_ms > since ? (now_ms - since) / 1000 : 0;
-    const int elapsed = gone > 86400 ? 86400 : static_cast<int>(gone);
-    const int planned = step.minutes * 60;
-    e.step_left = planned - elapsed;
-    if (e.started && !step.optional) remaining -= elapsed < planned ? elapsed : planned;
-    e.losing = mandatory && e.started && (step.optional || elapsed > planned);
+    elapsed = gone > 86400 ? 86400 : static_cast<int>(gone);
+  }
+
+  const int end = e.target >= 0 ? e.target : count;
+  int remaining = 0;
+  for (int i = 0; i < end; ++i)
+    if (mandatoryStep(i) && !done(i)) remaining += steps[i].minutes * 60;
+  if (e.started && e.next < end && mandatoryStep(e.next)) {
+    const int planned = steps[e.next].minutes * 60;
+    remaining -= elapsed < planned ? elapsed : planned;
   }
   e.remaining = (remaining + 59) / 60;
-  e.left = routine.deadline - minute_of_day;
-  const int left = e.left * 60 - (now_ms > 0 ? static_cast<int>(now_ms / 1000 % 60) : 0);
+  const int target_time = e.target >= 0 ? stepTime(steps[e.target], marks) : routine.deadline;
+  e.left = target_time - minute_of_day;
+  const int left = e.left * 60 - second;
   e.slack = left - remaining;
+  if (e.next >= 0) {
+    const Step& step = steps[e.next];
+    if (e.free) e.step_left = e.slack > 0 ? e.slack : 0;
+    else if (e.waiting) e.step_left = stepTime(step, marks) * 60 > now_s ? stepTime(step, marks) * 60 - now_s : 0;
+    else e.step_left = step.minutes * 60 - elapsed;
+    e.losing = mandatory && e.started && !e.free && (step.optional || elapsed > step.minutes * 60);
+  }
   // Finished: the advance (or delay) of the last mandatory step is kept.
   if (e.total && !mandatory && last_mandatory > kRealTime && now_ms > 0)
-    e.slack = left + static_cast<int>((now_ms - last_mandatory) / 1000);
+    e.slack = routine.deadline * 60 - now_s + static_cast<int>((now_ms - last_mandatory) / 1000);
   if (!e.total) e.state = STATE_EMPTY;
   else if (!mandatory) e.state = STATE_DONE;
   else if (left <= 0) e.state = STATE_PASSED;
@@ -170,6 +235,27 @@ Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_da
   else if (e.slack < 15 * 60) e.state = STATE_ONTIME;
   else e.state = STATE_EARLY;
   return e;
+}
+
+std::string mdnsName(const std::string& url) {
+  const size_t scheme = url.find("://");
+  if (scheme == std::string::npos) return "";
+  const size_t start = scheme + 3;
+  const size_t end = url.find_first_of(":/", start);
+  std::string host = url.substr(start, end == std::string::npos ? std::string::npos : end - start);
+  for (char& c : host)
+    if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+  const std::string suffix = ".local";
+  if (host.size() <= suffix.size() || host.compare(host.size() - suffix.size(), suffix.size(), suffix)) return "";
+  return host.substr(0, host.size() - suffix.size());
+}
+
+std::string withHost(const std::string& url, const std::string& host) {
+  const size_t scheme = url.find("://");
+  if (scheme == std::string::npos) return url;
+  const size_t start = scheme + 3;
+  const size_t end = url.find_first_of(":/", start);
+  return url.substr(0, start) + host + (end == std::string::npos ? "" : url.substr(end));
 }
 
 int gaugePercent(int slack_seconds) {

@@ -11,6 +11,7 @@
     #include <Arduino.h>
     #include <FS.h>
     #include <HTTPClient.h>
+    #include <ESPmDNS.h>
     #include <SPIFFS.h>
     #include <WiFi.h>
     #include "hardware/wifictl.h"
@@ -52,7 +53,7 @@ static std::string hp_config_json;
 static lv_obj_t *hp_tile, *hp_page, *hp_exit_btn, *hp_refresh_btn, *hp_setup_btn;
 static lv_obj_t *hp_head_img, *hp_head_text, *hp_status_lbl;
 static lv_obj_t *hp_gauge, *hp_gauge_lbl, *hp_gauge_fill, *hp_gauge_dot, *hp_timer_lbl, *hp_go_btn;
-static int hp_shown_next = -1, hp_shown_state = -1;
+static int hp_shown_next = -1, hp_shown_state = -1, hp_shown_target = -1;
 static time_t hp_shown_second = 0;
 static bool hp_active = false;
 static lv_obj_t *hp_url_area, *hp_key_area;
@@ -165,8 +166,18 @@ class hp_http_t : public hp::Transport {
     private:
     int request( const char *path, const std::string *body, std::string &response ) {
         HTTPClient http;
-        String url = String( url_.c_str() ) + path;
         response.clear();
+        std::string base = url_;
+        const std::string name = hp::mdnsName( base );
+        if ( !name.empty() ) {
+            /* the watch resolves .local names itself; begin() is harmless if mDNS already runs */
+            MDNS.begin( "home-watch" );
+            IPAddress ip = MDNS.queryHost( name.c_str(), 3000 );
+            if ( (uint32_t)ip == 0 )
+                return( -1 );
+            base = hp::withHost( base, ip.toString().c_str() );
+        }
+        String url = String( base.c_str() ) + path;
         if ( !http.begin( url ) )
             return( -1 );
         http.setTimeout( 8000 );
@@ -333,14 +344,14 @@ static void hp_update_timing( const hp::Routine &routine, const hp::Evaluation &
             text += e.slack >= 0 ? "\nl'avance fond" : "\n\xC3\xA7""a grandit";
         lv_label_set_text( hp_gauge_lbl, text.c_str() );
     }
-    bool timer = clock && e.next >= 0 && e.state != hp::STATE_DONE;
+    bool timer = clock && e.next >= 0 && ( e.state != hp::STATE_DONE || e.free );
     hp_set_hidden( hp_timer_lbl, !timer );
-    hp_set_hidden( hp_go_btn, !timer || e.started );
+    hp_set_hidden( hp_go_btn, !timer || e.started || e.free );
     if ( timer ) {
         int seconds = e.step_left < 0 ? -e.step_left : e.step_left;
         char text[ 96 ];
-        snprintf( text, sizeof( text ), "%s\n%s%d:%02d", routine.steps[ e.next ].label.c_str(),
-                  e.step_left < 0 ? "+" : "", seconds / 60, seconds % 60 );
+        snprintf( text, sizeof( text ), "%s%s\n%s%d:%02d", routine.steps[ e.next ].label.c_str(),
+                  e.waiting ? " dans" : "", e.step_left < 0 ? "+" : "", seconds / 60, seconds % 60 );
         lv_label_set_text( hp_timer_lbl, text );
         lv_obj_set_style_local_text_color( hp_timer_lbl, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT,
                                            e.step_left < 0 ? lv_color_hex( 0xFF7043 ) : LV_COLOR_WHITE );
@@ -356,7 +367,7 @@ static void hp_tick( void ) {
     const hp::Routine &routine = hp_config.routines[ hp_shown_routine ];
     hp::Evaluation e = hp::evaluate( routine, hp_progress.done[ member->id + "/" + routine.id ],
                                      now.tm_hour * 60 + now.tm_min, hp_now_ms() );
-    if ( e.next != hp_shown_next || e.state != hp_shown_state )
+    if ( e.next != hp_shown_next || e.state != hp_shown_state || e.target != hp_shown_target )
         hp_update();
     else
         hp_update_timing( routine, e, true );
@@ -387,6 +398,7 @@ static void hp_update( void ) {
     hp::Evaluation e = hp::evaluate( routine, marks, clock ? now.tm_hour * 60 + now.tm_min : 0, clock ? hp_now_ms() : 0 );
     hp_shown_next = e.next;
     hp_shown_state = e.state;
+    hp_shown_target = e.target;
     hp_update_timing( routine, e, clock );
     char text[ 96 ];
     const lv_img_dsc_t *mascot = &hp_rabbit_content_64;
@@ -404,6 +416,8 @@ static void hp_update( void ) {
     }
     else {
         const char *mood = e.state == hp::STATE_LATE ? "On se d\xC3\xA9p\xC3\xAA""che" : e.state == hp::STATE_TIGHT ? "C'est juste" : "\xC3\x87""a roule";
+        if ( e.target >= 0 )
+            mood = routine.steps[ e.target ].label.c_str();
         if ( e.left >= 60 )
             snprintf( text, sizeof( text ), "%d h %02d\n%s\n%d/%d", e.left / 60, e.left % 60, mood, e.done, e.total );
         else
