@@ -10,3 +10,4 @@
 #define C_ORANGE RGB(255,150,40)
 #define C_GREY RGB(150,150,150)
 #define C_BG RGB(6,8,24)
+#define C_DARK RGB(45,52,80)
