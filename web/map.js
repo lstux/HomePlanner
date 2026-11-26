@@ -74,7 +74,7 @@ export function initMap(app) {
     const person = alive(app.lists.contacts).find((c) => c.id === selected.personId);
     const here = alive(app.lists.contacts).filter((c) => whereIs(c, places())?.id === place.id);
     const home = places().find((p) => p.kind === "home" && p.id !== place.id);
-    $("map-card").replaceChildren(
+    $("map-card").replaceChildren(...[
       el("h2", { textContent: person ? `${person.emoji || "🙂"} ${person.name} : ${place.emoji} ${place.name}` : `${place.emoji} ${place.name}` }),
       place.address ? el("p", { className: "muted", textContent: place.address }) : null,
       home ? el("p", { textContent: `À ${formatKm(distanceKm(home, place))} de la maison, à vol d'oiseau.` }) : null,
@@ -82,7 +82,7 @@ export function initMap(app) {
       el("div", { className: "row" },
         el("a", { className: "button secondary", textContent: "Itinéraire", target: "_blank", rel: "noopener",
           href: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lon}` }),
-        button("Modifier", "button secondary", () => edit(place))));
+        button("Modifier", "button secondary", () => edit(place)))].filter(Boolean));
   }
 
   function edit(place) {
