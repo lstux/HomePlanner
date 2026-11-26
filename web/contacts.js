@@ -4,7 +4,7 @@ import { upsert, remove, alive, newId } from "./lists.js";
 import { whereIs, nearbyPlace, position } from "./map.js";
 import { searchPlaces } from "./geo.js";
 
-const FIELDS = ["name", "relation", "emoji", "phone", "note", "homeId", "nowId"];
+const FIELDS = ["name", "relation", "emoji", "phone", "note", "homeId"];
 export const telLink = (phone) => "tel:" + phone.replace(/[^\d+*#]/g, "");
 
 export function initContacts(app) {
@@ -38,9 +38,8 @@ export function initContacts(app) {
     editing = contact;
     address = null; $("contact-address").value = ""; note("");
     const places = alive(app.lists.places);
-    for (const id of ["homeId", "nowId"])
-      $("contact-" + id).replaceChildren(el("option", { value: "", textContent: id === "homeId" ? "Non renseigné" : "Chez elle / chez lui" }),
-        ...places.map((p) => el("option", { value: p.id, textContent: `${p.emoji} ${p.name}` })));
+    $("contact-homeId").replaceChildren(el("option", { value: "", textContent: "Non renseigné" }),
+      ...places.map((p) => el("option", { value: p.id, textContent: `${p.emoji} ${p.name}` })));
     for (const f of FIELDS) $("contact-" + f).value = contact[f] || "";
     $("contact-delete").hidden = !contact.id;
     $("contact-form").hidden = false;

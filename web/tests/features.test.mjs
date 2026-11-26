@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { askAdult, pinHash, lockNow, validPin } from "../lock.js";
+import { askAdult, pinHash, lockNow, validPin, resetHoursLeft, expireReset } from "../lock.js";
 import { describe, advice } from "../weather.js";
 import { distanceKm, formatKm, whereIs, nearbyPlace } from "../map.js";
 import { parseAddresses } from "../geo.js";
@@ -19,13 +19,21 @@ test("mode adulte : code demandé, puis déverrouillé quelques minutes", () => 
   assert.equal(askAdult(config, () => null, () => {}, 1000 + 6 * 60000), false);
 });
 
-test("code oublié : effacé seulement avec le bon calcul", () => {
+test("un code par adulte ; code oublié : effacement après 24 h", () => {
   lockNow();
-  const config = { pin: pinHash("2580") };
-  assert.equal(askAdult(config, (m) => (m.includes("×") ? "1" : "oubli"), () => {}), false);
-  const solve = (m) => { const n = m.match(/(\d+) × (\d+)/); return n ? String(n[1] * n[2]) : "oubli"; };
-  assert.equal(askAdult(config, solve, () => {}), "reset");
-  assert.equal(config.pin, undefined);
+  const config = { pins: [{ name: "A", hash: pinHash("2580") }, { name: "B", hash: pinHash("1357") }] };
+  assert.equal(askAdult(config, () => "1357", () => {}, 1000), true);
+  lockNow();
+  const forgot = (agree, now) => askAdult(config, () => "oubli", () => {}, now, () => agree);
+  assert.equal(forgot(false, 5000), false);
+  assert.equal(config.pinReset, undefined);
+  assert.equal(forgot(true, 5000), "changed");
+  assert.equal(resetHoursLeft(config, 5000 + 3600000), 23);
+  assert.equal(forgot(true, 9000), false); // déjà demandé
+  assert.equal(expireReset(config, 5000 + 23 * 3600000), false);
+  assert.equal(askAdult(config, () => assert.fail(), () => {}, 5000 + 24 * 3600000), "reset");
+  assert.equal(config.pins, undefined);
+  assert.equal(resetHoursLeft(config), null);
 });
 
 test("météo : description et conseil", () => {
@@ -41,8 +49,8 @@ test("carte : distance, position d'un proche, lien d'appel", () => {
   assert.equal(formatKm(0.42), "420 m");
   assert.equal(formatKm(2.34), "2,3 km");
   const places = [{ id: "a" }, { id: "b" }];
-  assert.equal(whereIs({ homeId: "a", nowId: "b" }, places).id, "b");
-  assert.equal(whereIs({ homeId: "a", nowId: "gone" }, places).id, "a");
+  assert.equal(whereIs({ homeId: "a", nowId: "b" }, places).id, "a");
+  assert.equal(whereIs({ homeId: "gone" }, places), null);
   assert.equal(telLink("06 12.34-56 78"), "tel:0612345678");
 });
 
