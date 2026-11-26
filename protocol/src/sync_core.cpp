@@ -163,6 +163,36 @@ std::uint64_t SyncCore::lastSequence() const {
   return next_sequence_ - 1;
 }
 
+const std::deque<std::string>& SyncCore::operationOrder() const {
+  return operation_order_;
+}
+
+const SyncCore::StoredOperation* SyncCore::operation(
+    const std::string& op_id) const {
+  std::map<std::string, StoredOperation>::const_iterator it =
+      operations_.find(op_id);
+  return it == operations_.end() ? 0 : &it->second;
+}
+
+void SyncCore::restoreSequence(std::uint64_t last_sequence) {
+  next_sequence_ = last_sequence + 1;
+}
+
+void SyncCore::restoreEntity(const Entity& entity) {
+  entities_[entityKey(entity.entity_type, entity.entity_id)] = entity;
+}
+
+void SyncCore::restoreOperation(const StoredOperation& stored) {
+  operations_[stored.command.op_id] = stored;
+  operation_order_.push_back(stored.command.op_id);
+  operation_bytes_ += stored.command.payload.size();
+}
+
+void SyncCore::restoreChange(const Change& change) {
+  changes_.push_back(change);
+  change_bytes_ += change.payload.size();
+}
+
 const char* resultStatusName(ResultStatus status) {
   switch (status) {
     case ResultStatus::Applied: return "applied";

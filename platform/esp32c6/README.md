@@ -49,6 +49,12 @@ The portable journal now submits a complete header+payload frame through one app
 
 ESP-IDF's FatFs documentation describes POSIX/VFS access and the `CONFIG_FATFS_IMMEDIATE_FSYNC` option. The actual platform package used by the existing PlatformIO project is pioarduino's stable release, so compile and runtime verification against that exact package remains mandatory.
 
+## Journal generations
+
+`SdJournalStore` keeps the compacted generations next to `journal.bin` (see docs/persistence-journal.md). Do not delete or rename these files by hand: an `.ok` marker says which journal is in service.
+
+`tests/sd_journal_tests.cpp` runs both adapters on a PC (`/sd` directory, FreeRTOS stubbed); the command is in `.github/workflows/protocol-tests.yml`.
+
 ## Important caveats
 
 - `fsync()` and `ftruncate()` are part of the ESP-IDF FatFs/VFS POSIX integration, but their availability/behavior must still be confirmed by building against the exact pioarduino framework package.

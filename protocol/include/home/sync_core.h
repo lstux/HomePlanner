@@ -61,6 +61,12 @@ class SyncCore {
   static const std::size_t kMaxChanges = 64;
   static const std::size_t kMaxHistoryBytes = 24 * 1024;
 
+  // A command already seen, with the answer it received.
+  struct StoredOperation {
+    Command command;
+    CommandResult result;
+  };
+
   CommandResult apply(const Command& command);
 
   const Entity* find(const std::string& entity_type,
@@ -70,12 +76,18 @@ class SyncCore {
   const std::vector<Change>& changes() const;
   std::uint64_t lastSequence() const;
 
- private:
-  struct StoredOperation {
-    Command command;
-    CommandResult result;
-  };
+  // Remembered operations, oldest first.
+  const std::deque<std::string>& operationOrder() const;
+  const StoredOperation* operation(const std::string& op_id) const;
 
+  // Rebuild a state saved by a journal checkpoint, into an empty core. Items
+  // are given back in their original order.
+  void restoreSequence(std::uint64_t last_sequence);
+  void restoreEntity(const Entity& entity);
+  void restoreOperation(const StoredOperation& stored);
+  void restoreChange(const Change& change);
+
+ private:
   static bool sameCommand(const Command& a, const Command& b);
   static CommandResult rejected(const std::string& op_id,
                                 const std::string& reason);
