@@ -8,6 +8,10 @@
 - The PWA must remain loadable when the C6 is offline.
 - No cloud account or remote database is required for shared household state.
 
+## Milestone 0.3 — Household synchronization
+
+The shared test value is replaced by `snapshot` and `push` endpoints protected by a pairing key. The PWA synchronizes routine settings and daily progress. Chrome's Local Network Access permission is expected to let the HTTPS PWA call the HTTP central on Android (see the transport caveat below, which predates it); this has not been tried on hardware.
+
 ## Milestone 0.2 — C6 bring-up and Wi-Fi provisioning
 
 The Waveshare ST7789 display and shared SPI2/SD board support have been integrated. The display now reports boot, Wi-Fi, SD, and journal state. If no saved Wi-Fi network connects, the C6 starts a setup access point (`HomePlanner-XXXX`, prototype password `homeplan1`) with a captive DNS portal at `http://192.168.4.1/`. Up to five networks are stored in NVS. A missing SD card no longer prevents Wi-Fi setup and HTTP health diagnostics.

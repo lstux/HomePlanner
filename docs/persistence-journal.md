@@ -89,7 +89,7 @@ A successful sync call is only as strong as the filesystem, SD driver, card firm
 - Every submitted attempt is recorded, including retries that the core later classifies as duplicates. This is safe for correctness but can waste space; a later optimization can suppress known duplicate op IDs after exposing a safe lookup API.
 - CRC-32 detects accidental corruption; it is not an authenticity or tamper-protection mechanism.
 - There is no multi-process or multi-thread locking in the portable layer. The platform adapter/service must serialize calls.
-- The in-memory core still stores the full change feed and operation results.
+- The in-memory core keeps only a bounded history; the journal file itself still grows without limit.
 - No snapshot format, journal rotation, backup policy, or recovery UI is implemented.
 
 Do not treat this as a finished database. It is a testable first persistence boundary whose SD adapter and power-loss behavior remain to be proven.

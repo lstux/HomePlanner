@@ -1,6 +1,10 @@
-# HomePlanner ESP32-C6 firmware (0.2.1 prototype)
+# HomePlanner ESP32-C6 firmware (0.4.0 prototype)
 
 Target: Waveshare ESP32-C6-LCD-1.47 with ST7789 display and microSD.
+
+## Web flasher
+
+The Pages site serves `flash/`: install or update from Chrome/Edge on a computer, no PlatformIO needed (`tools/build_site.sh`). Leave "Erase device" unchecked when updating.
 
 ## First boot / Wi-Fi setup
 
@@ -24,13 +28,17 @@ Missing or damaged SD/journal storage no longer prevents Wi-Fi setup, HTTP diagn
 
 ## API
 
-- `GET /api/v1/health`
-- `GET /api/v1/value`
-- `PUT /api/v1/value` with `{"value":"..."}`
+- `GET /api/v1/health` (public)
+- `GET /api/v1/sync/snapshot` (pairing key)
+- `POST /api/v1/sync/push` (pairing key; 1 to 4 commands, entity types `config`, `progress` and `list` (ids `shopping`, `contacts`, `places`), payload string up to 12 KiB)
 - `POST /api/v1/ota` multipart field `firmware`, header `X-HomePlanner-OTA`
-- `GET /` or `/_cfg` setup portal (primarily intended for the setup AP)
+- `GET /` or `/_cfg` setup portal (setup AP only)
 
-The CORS allow-list accepts the production PWA origin and localhost development origins.
+## Pairing key
+
+An 8-character key is generated on first boot, stored in NVS and shown on the screen when connected to Wi-Fi. Clients send it in `X-HomePlanner-Key`. Serial commands: `key` prints it, `newkey` replaces it (every client must then be reconfigured). Clearing Wi-Fi settings keeps the key.
+
+The CORS allow-list accepts `https://lstux.github.io`, `https://homeplanner.lslinux.org` and localhost development origins.
 
 ## Partitions
 
@@ -39,7 +47,9 @@ The 4 MB layout retains two 1.625 MiB OTA application slots, a 640 KiB LittleFS-
 ## Security / prototype limitations
 
 - Setup AP currently uses the shared prototype password `homeplan1`; do not use this firmware on an untrusted or shared radio environment.
-- Application API is not authenticated. Keep the device on a trusted LAN; do not port-forward it.
+- The pairing key is a single household secret sent over plain HTTP: no members or roles. Keep the device on a trusted LAN; do not port-forward it.
+- Contacts (names, phone numbers, places) travel over plain HTTP and are stored unencrypted on the SD card.
+- RAM history is bounded, but the SD journal grows without compaction, so boot replay gets slower over time.
 - HTTP is unencrypted; OTA token transport is not suitable outside a trusted LAN.
 - No signed OTA manifest, anti-rollback, or post-boot health confirmation yet.
 - The portal currently accepts a manually entered SSID; it does not yet scan and list nearby networks.

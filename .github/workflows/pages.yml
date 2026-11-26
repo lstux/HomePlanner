@@ -1,0 +1,54 @@
+name: Deploy PWA to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+  pull_request:
+    paths: ["web/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test
+        run: node --test web/tests/*.test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build ESP32-C6 firmware
+        run: |
+          python -m pip install --upgrade platformio
+          pio run -d platform/esp32c6/test_firmware
+      - name: Assemble site (PWA + web flasher)
+        run: tools/build_site.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v4

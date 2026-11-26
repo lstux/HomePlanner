@@ -10,7 +10,7 @@ The first client is a responsive Progressive Web App (PWA). A home central devic
 
 The portable synchronization/persistence foundations, first autonomous ESP32-C6 HTTP server prototype, and first installable PWA shell are now in the repository. The C6 firmware and browser-to-C6 path still require build and hardware validation; HTTPS on the C6 is the next transport milestone.
 
-A first usable PWA feature, the family routines (checklist, countdown, mascots), works on a single device without the central. See [web/](web/README.md).
+The family routines (checklist, countdown, mascots) work offline on each device, and synchronize through the central with firmware 0.4.0 (not yet validated on hardware). See [web/](web/README.md).
 
 ## Initial principles
 
@@ -45,3 +45,7 @@ A first usable PWA feature, the family routines (checklist, countdown, mascots),
 ## License
 
 GNU General Public License v3.0. See [LICENSE](LICENSE).
+
+## Try it
+
+Step-by-step setup and test guide (French): [web/guide/](web/guide/index.html), published at <https://lstux.github.io/HomePlanner/guide/>. Watch app: [platform/twatch/](platform/twatch/README.md).

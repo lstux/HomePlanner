@@ -24,10 +24,15 @@ export function minutesUntil(deadline, now) {
   return (target - now) / 60000;
 }
 
+// Marque d'une étape : horodatage positif = cochée, négatif = décochée.
+export const isDone = (done, id) => done[id] > 0 || done[id] === true;
+export const mark = (previous, checked, now = Date.now()) =>
+  (checked ? 1 : -1) * Math.max(now, Math.abs(Number(previous) || 0) + 1);
+
 // state : empty | done | passed | late | tight | ontime | early
 export function evaluate(routine, done, now) {
-  const checked = routine.steps.filter((s) => done[s.id]);
-  const pending = routine.steps.filter((s) => !done[s.id]);
+  const checked = routine.steps.filter((s) => isDone(done, s.id));
+  const pending = routine.steps.filter((s) => !isDone(done, s.id));
   const required = pending.filter((s) => !s.optional);
   const remaining = required.reduce((sum, s) => sum + s.minutes, 0);
   const left = minutesUntil(routine.deadline, now);
