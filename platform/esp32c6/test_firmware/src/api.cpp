@@ -48,6 +48,7 @@ bool ready() {
     sendError(401, "pairing_key_required");
     return false;
   }
+  hpClientAuthorized(static_cast<uint32_t>(http->client().remoteIP()));
   if (!*store || !(*store)->healthy()) {
     sendError(503, "journal_unavailable");
     return false;
@@ -155,6 +156,14 @@ void handlePush() {
   sendJson(200, out);
 }
 
+// Sans clé : fait seulement apparaître le code sur l'écran de la centrale.
+void handlePairingShow() {
+  hpPairingRequested(static_cast<uint32_t>(http->client().remoteIP()));
+  StaticJsonDocument<64> doc;
+  doc["ok"] = true;
+  sendJson(200, doc);
+}
+
 void handleOptions() {
   hpCors(*http);
   http->send(204, "text/plain", "");
@@ -205,4 +214,6 @@ void hpApiRegister(WebServer& server, home::JournaledSyncCore*& journal) {
   server.on("/api/v1/sync/snapshot", HTTP_OPTIONS, handleOptions);
   server.on("/api/v1/sync/push", HTTP_POST, handlePush);
   server.on("/api/v1/sync/push", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/pairing/show", HTTP_POST, handlePairingShow);
+  server.on("/api/v1/pairing/show", HTTP_OPTIONS, handleOptions);
 }

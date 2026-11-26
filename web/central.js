@@ -56,6 +56,13 @@ export function initCentral(app, onChange) {
   }
   function soon() { clearTimeout(timer); timer = setTimeout(sync, 800); }
 
+  // Fait apparaître le code sur l'écran de la centrale (firmware 0.6.0 et suivants).
+  function askCode(reason) {
+    request("/api/v1/pairing/show", {})
+      .then(() => status(reason + "Le code s'affiche sur la centrale : saisis-le puis touche « Connecter ».", false))
+      .catch((error) => status(reason + (error.message === "Firmware de la centrale à mettre à jour" ? "Saisis le code affiché sur l'écran de la centrale." : error.message), false));
+  }
+
   $("server-url").value = server;
   $("pairing-key").value = key;
   $("save-server").addEventListener("click", () => {
@@ -66,9 +73,10 @@ export function initCentral(app, onChange) {
     key = $("pairing-key").value.trim().toUpperCase(); $("pairing-key").value = key;
     keep("home.server", server); keep("home.key", key);
     status("Connexion…", false);
+    if (server && !key) { askCode(""); return; }
     // Depuis les réglages, on ne remplace pas la saisie en cours : synchro à la fermeture.
     request("/api/v1/sync/snapshot").then(() => status("Connexion réussie. Ferme les réglages pour synchroniser.", true))
-      .catch((error) => status(error.message, false));
+      .catch((error) => error.message === "Code d'appairage refusé" ? askCode("Code refusé. ") : status(error.message, false));
   });
   window.addEventListener("online", soon);
   status(server && key ? "Connexion à la maison…" : "Non configurée", false);

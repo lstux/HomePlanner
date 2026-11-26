@@ -1,4 +1,4 @@
-const CACHE = "homeplanner-pwa-v9";
+const CACHE = "homeplanner-pwa-v10";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./sync.js",
   "./dom.js", "./lists.js", "./lock.js", "./shopping.js", "./weather.js", "./map.js", "./geo.js", "./basemaps.js", "./bins.js", "./contacts.js", "./backup.js",
   "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
