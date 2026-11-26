@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { askAdult, pinHash, lockNow, validPin } from "../lock.js";
 import { describe, advice } from "../weather.js";
-import { distanceKm, formatKm, whereIs } from "../map.js";
+import { distanceKm, formatKm, whereIs, nearbyPlace } from "../map.js";
+import { parseAddresses } from "../geo.js";
+import { BASES } from "../basemaps.js";
 import { telLink } from "../contacts.js";
 
 test("mode adulte : code demandé, puis déverrouillé quelques minutes", () => {
@@ -41,4 +43,21 @@ test("carte : distance, position d'un proche, lien d'appel", () => {
   assert.equal(whereIs({ homeId: "a", nowId: "b" }, places).id, "b");
   assert.equal(whereIs({ homeId: "a", nowId: "gone" }, places).id, "a");
   assert.equal(telLink("06 12.34-56 78"), "tel:0612345678");
+});
+
+test("adresses : lecture de la réponse, lieu voisin réutilisé", () => {
+  const f = (label, score, lat = 48.1, lon = -1.6) => ({ geometry: { coordinates: [lon, lat] }, properties: { label, score } });
+  assert.deepEqual(parseAddresses({ features: [f("12 Rue des Lilas 35000 Rennes", 0.9), f("Autre", 0.2), { properties: {} }] }),
+    [{ label: "12 Rue des Lilas 35000 Rennes", lat: 48.1, lon: -1.6 }]);
+  assert.deepEqual(parseAddresses(null), []);
+  const places = [{ id: "a", lat: 48.1, lon: -1.6 }];
+  assert.equal(nearbyPlace(places, { lat: 48.1002, lon: -1.6 }).id, "a");
+  assert.equal(nearbyPlace(places, { lat: 48.101, lon: -1.6 }), null);
+});
+
+test("fonds de carte : adresses complètes et sources citées", () => {
+  for (const base of Object.values(BASES)) {
+    for (const part of ["https://", "{z}", "{x}", "{y}"]) assert.ok(base.url.includes(part));
+    assert.ok(base.options.attribution);
+  }
 });

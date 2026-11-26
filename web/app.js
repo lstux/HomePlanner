@@ -1,4 +1,4 @@
-import { dateKey, suggestRoutine, evaluate, formatDuration, isDone, mark } from "./routine.js";
+import { dateKey, suggestRoutine, evaluate, formatDuration, formatClock, gauge, goKey, isDone, mark } from "./routine.js";
 import { pickLine, SPARE_IDEAS } from "./mascots.js";
 import { loadConfig, saveConfig, loadProgress, saveProgress, loadMeta, saveMeta } from "./store.js";
 import { defaultConfig } from "./data.js";
@@ -39,12 +39,62 @@ const STATUS = {
   late: ["late", "Un peu de retard"], passed: ["late", "Heure dépassée"], done: ["good", "Terminé !"], empty: ["warn", "Aucune étape"],
 };
 
+// Parties « vivantes », rafraîchies chaque seconde : heure, jauge et minuteur d'étape.
+function renderTiming(r, info) {
+  const [kind, label] = STATUS[info.state];
+  $("clock").dataset.kind = kind;
+  $("status-label").textContent = label;
+  $("deadline-label").textContent = `${r.deadlineLabel} à ${r.deadline.replace(":", " h ")}`;
+  $("countdown").textContent = info.left > 0 ? formatDuration(Math.ceil(info.left)) : "—";
+  $("estimate").textContent = info.remaining > 0 ? `Environ ${formatDuration(Math.ceil(info.remaining))} d'étapes à faire` : "Plus rien d'obligatoire";
+
+  const g = gauge(info.slack);
+  $("gauge").hidden = info.state === "empty";
+  $("gauge").dataset.tone = g.tone;
+  $("gauge-needle").style.left = `${g.position}%`;
+  $("gauge-fill").style.left = `${Math.min(50, g.position)}%`;
+  $("gauge-fill").style.width = `${Math.abs(g.position - 50)}%`;
+  const trend = !info.losing ? "" : info.slack >= 0 ? " · ⏳ l'avance fond" : " · ⏳ le retard grandit";
+  $("gauge-label").textContent = (info.state === "done" ? "Fini : " : "") + g.label + trend;
+
+  const { step, started, elapsed } = info.timer;
+  $("timer").hidden = !step || info.state === "done";
+  if ($("timer").hidden) return;
+  const left = step.minutes - elapsed;
+  $("timer").dataset.over = String(started && left < 0);
+  $("timer-title").textContent = `${step.icon} ${step.label}`;
+  $("timer-value").textContent = started ? formatClock(left) : formatClock(step.minutes);
+  $("timer-bar").style.width = `${started && step.minutes ? Math.max(0, (100 * left) / step.minutes) : 100}%`;
+  $("timer-go").hidden = started;
+  $("timer-hint").textContent = !started ? "Touche « C'est parti » quand tu commences."
+    : left < 0 ? "Le temps prévu est passé : on termine tranquillement, puis on coche." : "Coche l'étape quand c'est fini.";
+}
+let shownState = "";
+function tickTiming() {
+  if (document.hidden || view !== "home") return;
+  const r = routine(), info = evaluate(r, doneMap(), new Date());
+  if (dateKey(new Date()) !== today || info.state !== shownState) render();
+  else renderTiming(r, info);
+}
+
+// « C'est parti » ou « je fais celle-là » : démarre le minuteur de cette étape.
+function focusStep(s) {
+  const done = doneMap();
+  done[goKey(s.id)] = mark(done[goKey(s.id)], true);
+  if (!saveProgress(progress)) $("speech").textContent = "Impossible d'enregistrer sur cet appareil.";
+  reaction = null;
+  central.soon();
+  navigator.vibrate?.(30);
+  render();
+}
+
 function render() {
   const now = new Date();
   if (dateKey(now) !== today) { today = dateKey(now); progress = loadProgress(today); manualRoutine = null; reaction = null; }
   const r = routine();
   const done = doneMap();
   const info = evaluate(r, done, now);
+  shownState = info.state;
 
   $("members").replaceChildren(...config.members.map((m) => el("button", {
     className: "chip" + (m.id === member().id ? " active" : ""), textContent: m.name, type: "button",
@@ -53,12 +103,7 @@ function render() {
   $("members").hidden = config.members.length < 2;
   $("routine-select").replaceChildren(...config.routines.map((x) => el("option", { value: x.id, textContent: `${x.icon} ${x.name}`, selected: x.id === r.id })));
 
-  const [kind, label] = STATUS[info.state];
-  $("clock").dataset.kind = kind;
-  $("status-label").textContent = label;
-  $("deadline-label").textContent = `${r.deadlineLabel} à ${r.deadline.replace(":", " h ")}`;
-  $("countdown").textContent = info.left > 0 ? formatDuration(Math.ceil(info.left)) : "—";
-  $("estimate").textContent = info.remaining ? `Environ ${formatDuration(info.remaining)} d'étapes à faire` : "Plus rien d'obligatoire";
+  renderTiming(r, info);
   $("progress-bar").style.width = info.total ? `${(100 * info.doneCount) / info.total}%` : "0";
   $("progress-text").textContent = `${info.doneCount} / ${info.total}`;
 
@@ -87,7 +132,10 @@ function render() {
       el("span", { className: "check", textContent: checked ? "✓" : "" }));
     button.setAttribute("aria-pressed", String(checked));
     button.onclick = () => toggle(s);
-    return el("li", {}, button);
+    const play = !checked && info.next?.id !== s.id
+      ? el("button", { type: "button", className: "play", textContent: "▶", ariaLabel: `Je fais « ${s.label} » maintenant`, onclick: () => focusStep(s) })
+      : null;
+    return el("li", {}, button, play);
   }));
 }
 
@@ -238,5 +286,7 @@ show("home");
 central.sync();
 function tick() { if (!document.hidden && view !== "settings") { if (view === "home") { render(); weather.render(); weather.refresh(); } central.sync(); } }
 setInterval(tick, 15000);
+setInterval(tickTiming, 1000);
+$("timer-go").onclick = () => { const s = evaluate(routine(), doneMap(), new Date()).next; if (s) focusStep(s); };
 document.addEventListener("visibilitychange", tick);
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.error));

@@ -16,7 +16,7 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 - Plusieurs enfants, routines modifiables.
 - Courses : liste partagée, cochable par tout le monde.
 - Météo ([Open-Meteo](https://open-meteo.com/), usage non commercial) avec conseil d'habillage ; la position de la ville (arrondie à environ 1 km) est envoyée à Open-Meteo.
-- Carte (Leaflet 1.9.4, tuiles [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/), connexion nécessaire pour le fond) : maison, sorties, « où est mamie ? ». Position saisie à la main, aucun suivi.
+- Carte (Leaflet 1.9.4, fonds au choix : [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/), plan et photos IGN, OpenTopoMap ; connexion nécessaire) : maison, sorties, « où est mamie ? ». Lieux placés à la main ou par recherche d'adresse (Géoplateforme IGN, envoyée seulement sur demande), aucun suivi.
 - Contacts du foyer et des proches, avec bouton d'appel.
 - Mode adulte : code facultatif devant les réglages, la remise à zéro, la ville, les lieux et les contacts. Garde-fou contre les manipulations d'enfant, pas une sécurité.
 - Fonctionne hors ligne après la première visite ; installable sur Android.
