@@ -16,6 +16,7 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 - Plusieurs enfants, routines modifiables.
 - Courses : liste partagée, cochable par tout le monde.
 - Météo ([Open-Meteo](https://open-meteo.com/), usage non commercial) avec conseil d'habillage ; la position de la ville (arrondie à environ 1 km) est envoyée à Open-Meteo.
+- Poubelles : tri un jeudi sur deux et reste chaque mardi (pré-rempli, réglable), rappel la veille et « C'est sorti » partagé ; jours fériés décalés d'un jour par défaut, chaque date ajustable (la règle réelle dépend de la commune). Rappel visible à l'ouverture de l'app, sans notification.
 - Carte (Leaflet 1.9.4, fonds au choix : [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/), plan et photos IGN, OpenTopoMap ; connexion nécessaire) : maison, sorties, « où est mamie ? ». Lieux placés à la main ou par recherche d'adresse (Géoplateforme IGN, envoyée seulement sur demande), aucun suivi.
 - Contacts du foyer et des proches, avec bouton d'appel.
 - Mode adulte : code facultatif devant les réglages, la remise à zéro, la ville, les lieux et les contacts. Garde-fou contre les manipulations d'enfant, pas une sécurité.

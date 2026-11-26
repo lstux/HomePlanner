@@ -19,6 +19,12 @@
 
   <main id="home">
     <button id="weather-chip" class="weather-chip" type="button" hidden></button>
+    <section id="bins-reminder" class="bins-reminder" hidden>
+      <img src="./mascots/rabbit-think.webp" alt="" width="64" height="64">
+      <div><strong id="bins-title"></strong><small id="bins-note"></small>
+        <div class="row"><button id="bins-out" class="button" type="button"></button><button id="bins-dates" class="button secondary" type="button">Les dates</button></div></div>
+    </section>
+    <button id="bins-chip" class="weather-chip bins-chip" type="button" hidden></button>
     <nav id="members" class="chips" aria-label="Qui es-tu ?"></nav>
     <select id="routine-select" aria-label="Routine"></select>
 
@@ -77,6 +83,18 @@
     </details>
   </main>
 
+  <main id="bins" hidden>
+    <h1>Les poubelles</h1>
+    <p class="muted">À sortir la veille au soir. Les décalages de jours fériés dépendent de la commune : vérifie et ajuste avec ✏️.</p>
+    <ul id="bin-list" class="steps"></ul>
+    <button id="bin-rules-open" class="button" type="button">Régler les jours de ramassage</button>
+    <section id="bin-rules-panel" class="panel" hidden>
+      <div id="bin-rules"></div>
+      <label class="inline"><input id="bin-shift" type="checkbox">Décaler d'un jour après un jour férié</label>
+      <div class="row"><button id="bin-add" class="button secondary" type="button">+ Une poubelle</button></div>
+      <div class="row"><button id="bin-rules-save" class="button" type="button">Enregistrer</button><button id="bin-rules-cancel" class="button secondary" type="button">Annuler</button></div>
+    </section>
+  </main>
   <main id="map-view" hidden>
     <h1>La carte</h1>
     <p class="eyebrow">OÙ EST… ?</p>

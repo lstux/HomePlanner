@@ -103,6 +103,19 @@ ul { list-style: none; padding: 0; }
 .results { display: grid; gap: 6px; margin: 0 0 8px; }
 .results:empty { display: none; }
 .results .button { width: 100%; text-align: left; font-weight: 600; }
+.bins-reminder { display: flex; gap: 12px; align-items: center; background: #fdeec4; border: 2px solid #e0a100; border-radius: 18px; padding: 12px; margin-bottom: 10px; }
+.bins-reminder[data-done=true] { background: #e8f3e6; border-color: #3d8b5a; }
+.bins-reminder img { width: 64px; height: 64px; object-fit: contain; }
+.bins-reminder strong, .bins-reminder small { display: block; }
+.bins-reminder .row { margin: 8px 0 0; }
+.bins-reminder .button { padding: 9px 14px; }
+.weather-chip.bins-chip { background: #e8f3e6; }
+.bin { background: #fff; border: 2px solid #e0e7de; border-radius: 18px; padding: 10px 14px; }
+.bin .contact { display: flex; align-items: center; gap: 12px; border: 0; padding: 0; margin: 0; background: none; }
+.bin strong::first-letter { text-transform: uppercase; }
+.bin.skipped strong { text-decoration: line-through; opacity: .55; }
+.bin-edit { margin-top: 10px; }
+.bin-edit input { flex: 1; }
 .weather-chip { width: 100%; text-align: left; border: 0; border-radius: 14px; background: #e5e9fb; padding: 10px 14px; margin-bottom: 10px; font-size: 14px; }
 .item { display: flex; gap: 8px; align-items: center; }
 .item .step { padding: 10px 14px; }
@@ -125,3 +138,5 @@ a.button { text-decoration: none; display: inline-block; }
 .call { font-size: 28px; text-decoration: none; background: #dcefdc; border-radius: 50%; width: 52px; height: 52px; display: grid; place-items: center; flex: none; }
 .contact .mini { flex: none; }
 form.panel .row { flex-wrap: wrap; }
+#bin-rules .row { flex-wrap: nowrap; }
+#bin-rules .row input:not(.icon-input) { flex: 1; min-width: 0; }

@@ -1,6 +1,6 @@
 const CACHE = "homeplanner-pwa-v7";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./sync.js",
-  "./dom.js", "./lists.js", "./lock.js", "./shopping.js", "./weather.js", "./map.js", "./geo.js", "./basemaps.js", "./contacts.js",
+  "./dom.js", "./lists.js", "./lock.js", "./shopping.js", "./weather.js", "./map.js", "./geo.js", "./basemaps.js", "./bins.js", "./contacts.js",
   "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
   "./manifest.webmanifest", "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./mascots/duo-walk.webp",
   ...["fox", "rabbit"].flatMap((who) => ["content", "bravo", "think", "comfort"].map((mood) => `./mascots/${who}-${mood}.webp`))];
