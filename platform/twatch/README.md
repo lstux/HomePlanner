@@ -6,7 +6,15 @@ avec la centrale ESP32-C6. Comme l'app Slovingo, elle se greffe sur le firmware
 
 **Statut : compilée en CI (v1, v2, v3), jamais essayée sur une montre.**
 
-## Installer
+## Installer depuis le navigateur
+
+Sur un ordinateur avec Chrome ou Edge : <https://lstux.github.io/HomePlanner/flash/watch/>. Faire la sauvegarde
+ci-dessous avant la première fois, et laisser « Erase device » décochée.
+
+Le site compile l'app avec le fork `lstux/T-Watch-2020` ; après un changement dans le fork seul, relancer
+le workflow « Deploy PWA to GitHub Pages ».
+
+## Installer en ligne de commande
 
 ```bash
 pip install platformio

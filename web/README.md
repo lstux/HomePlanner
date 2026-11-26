@@ -17,11 +17,11 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 - Courses : liste partagée, cochable par tout le monde.
 - Météo ([Open-Meteo](https://open-meteo.com/), usage non commercial) avec conseil d'habillage ; la position de la ville (arrondie à environ 1 km) est envoyée à Open-Meteo.
 - Soir : une étape peut avoir une heure fixe (« À table » à 19 h), décalable pour ce soir par un adulte ; la jauge vise cette heure puis l'heure de fin. Une étape « temps libre » (« Quartier libre ») dure ce qui reste avant le prochain repère.
-- Mode adulte : un code par adulte ; code oublié, un autre adulte en redonne un, sinon effacement après 24 h (annulable).
+- Mode adulte : code facultatif devant les réglages, la remise à zéro, la ville, les lieux et les contacts (garde-fou contre les manipulations d'enfant, pas une sécurité). Un code par adulte ; code oublié, un autre adulte en redonne un, sinon effacement après 24 h (annulable).
+- Sauvegarde dans un fichier (⚙️) : réglages, routines et listes, sans les codes adultes ni le code d'appairage ; la restauration remplace les réglages et ramène les éléments du fichier.
 - Poubelles : tri un jeudi sur deux et reste chaque mardi (pré-rempli, réglable), rappel la veille et « C'est sorti » partagé ; jours fériés décalés d'un jour par défaut, chaque date ajustable (la règle réelle dépend de la commune). Rappel visible à l'ouverture de l'app, sans notification.
 - Carte (Leaflet 1.9.4, fonds au choix : [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/), plan et photos IGN, OpenTopoMap ; connexion nécessaire) : maison, sorties, « où est mamie ? ». Lieux placés à la main ou par recherche d'adresse (Géoplateforme IGN, envoyée seulement sur demande), aucun suivi.
 - Contacts du foyer et des proches, avec bouton d'appel.
-- Mode adulte : code facultatif devant les réglages, la remise à zéro, la ville, les lieux et les contacts. Garde-fou contre les manipulations d'enfant, pas une sécurité.
 - Fonctionne hors ligne après la première visite ; installable sur Android.
 - `flash/` : installation du firmware de la centrale depuis le navigateur.
 

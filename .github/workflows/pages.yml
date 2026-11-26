@@ -3,9 +3,9 @@ name: Deploy PWA to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "platform/twatch/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
   pull_request:
-    paths: ["web/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "platform/twatch/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Montre : compilée depuis le fork T-Watch-2020 ; un échec ne bloque pas le reste du site.
+  watch:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [t-watch2020-v1, t-watch2020-v2, t-watch2020-v3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lstux/T-Watch-2020
+          path: watch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build the watch firmware for the web flasher
+        run: |
+          python -m pip install --upgrade platformio esptool==4.8.1
+          platform/twatch/install.sh watch
+          pio run -d watch -e ${{ matrix.env }}
+          # Aucun appareil : l'envoi échoue, mais la commande affichée donne fichiers et adresses.
+          pio run -v -d watch -e ${{ matrix.env }} -t upload --upload-port /dev/null > upload.log 2>&1 || true
+          grep write_flash upload.log || { tail -n 40 upload.log; exit 1; }
+          VERSION="$(git rev-parse --short HEAD)+$(git -C watch rev-parse --short HEAD)" \
+            python tools/watch_flash.py upload.log watch flash-out/${{ matrix.env }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: watchflash-${{ matrix.env }}
+          path: flash-out/
+
   build:
+    needs: watch
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,14 +65,20 @@ jobs:
         run: |
           python -m pip install --upgrade platformio
           pio run -d platform/esp32c6/test_firmware
-      - name: Assemble site (PWA + web flasher)
+      - name: Fetch the watch firmware
+        uses: actions/download-artifact@v4
+        with:
+          pattern: watchflash-*
+          path: _watch
+          merge-multiple: true
+      - name: Assemble site (PWA + web flashers)
         run: tools/build_site.sh
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: ${{ !cancelled() && needs.build.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
     needs: build
     runs-on: ubuntu-latest
     permissions:

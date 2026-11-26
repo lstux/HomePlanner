@@ -167,7 +167,13 @@
       <label class="field"><span>Code (4 à 8 chiffres)</span><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
       <button id="pin-add" class="button secondary" type="button">+ Ajouter ce code</button>
     </section>
-    <p class="muted"><a href="./guide/">Guide d'installation et de test</a><br><a href="./flash/">Installer le firmware d'une centrale (ordinateur)</a></p>
+    <section class="panel">
+      <h2>Sauvegarde</h2>
+      <p class="muted">Un fichier avec les réglages, routines, contacts, lieux, courses et poubelles. Les contacts y sont lisibles par n'importe qui : garde-le pour toi. Les codes adultes et les cases du jour n'y sont pas.</p>
+      <div class="row"><button id="backup-export" class="button secondary" type="button">Exporter</button><button id="backup-import" class="button secondary" type="button">Importer…</button></div>
+      <input id="backup-file" type="file" accept=".json,application/json" hidden>
+    </section>
+    <p class="muted"><a href="./guide/">Guide d'installation et de test</a><br><a href="./flash/">Installer la centrale ou la montre (ordinateur)</a></p>
     <div class="save-bar">
       <button id="cancel-settings" class="button secondary" type="button">Annuler</button>
       <button id="save-settings" class="button" type="button">Enregistrer</button>
