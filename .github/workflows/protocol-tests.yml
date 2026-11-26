@@ -4,10 +4,16 @@ on:
   push:
     paths:
       - "protocol/**"
+      - "platform/esp32c6/*.cpp"
+      - "platform/esp32c6/*.h"
+      - "platform/esp32c6/tests/**"
       - ".github/workflows/protocol-tests.yml"
   pull_request:
     paths:
       - "protocol/**"
+      - "platform/esp32c6/*.cpp"
+      - "platform/esp32c6/*.h"
+      - "platform/esp32c6/tests/**"
       - ".github/workflows/protocol-tests.yml"
 
 jobs:
@@ -21,3 +27,11 @@ jobs:
         run: cmake --build build/protocol --parallel
       - name: Test
         run: ctest --test-dir build/protocol --output-on-failure
+      - name: SD adapter on real files (FreeRTOS stubbed)
+        run: |
+          sudo mkdir -p /sd/hp-smoke && sudo chown -R "$USER" /sd
+          g++ -std=gnu++11 -Wall -Wextra -g -fsanitize=address,undefined \
+            -Iplatform/esp32c6/tests/stubs -Iprotocol/include -Iplatform/esp32c6 \
+            platform/esp32c6/tests/sd_journal_tests.cpp protocol/src/*.cpp platform/esp32c6/sd_*.cpp \
+            -o build/sd_journal_tests
+          build/sd_journal_tests

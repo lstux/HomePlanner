@@ -1,4 +1,4 @@
-# HomePlanner ESP32-C6 firmware (0.4.0 prototype)
+# HomePlanner ESP32-C6 firmware (0.5.0 prototype)
 
 Target: Waveshare ESP32-C6-LCD-1.47 with ST7789 display and microSD.
 
@@ -16,7 +16,7 @@ The firmware initializes the display first, then attempts the saved Wi-Fi networ
 
 Connect a phone or PC to that network, enter the home Wi-Fi SSID and password, then save. The device stores up to five networks in NVS and restarts. The setup AP password is currently a shared prototype default; this must be made configurable before wider deployment.
 
-BOOT button: short press toggles the display backlight; hold for 5 seconds to clear saved Wi-Fi settings and restart into setup mode. Serial monitor is 115200 baud; `s` prints status, `x` clears Wi-Fi settings, and `ota-token <secret>` stores the OTA token in NVS.
+BOOT button: short press toggles the display backlight; hold for 5 seconds to clear saved Wi-Fi settings and restart into setup mode. Serial monitor is 115200 baud; `s` prints status, `compact` compacts the journal now, `x` clears Wi-Fi settings, and `ota-token <secret>` stores the OTA token in NVS.
 
 If the Wi-Fi link drops, the device waits 30 seconds before opening the setup access point. While nobody is connected to that access point, saved networks are retried every 2 minutes.
 
@@ -49,7 +49,7 @@ The 4 MB layout retains two 1.625 MiB OTA application slots, a 640 KiB LittleFS-
 - Setup AP currently uses the shared prototype password `homeplan1`; do not use this firmware on an untrusted or shared radio environment.
 - The pairing key is a single household secret sent over plain HTTP: no members or roles. Keep the device on a trusted LAN; do not port-forward it.
 - Contacts (names, phone numbers, places) travel over plain HTTP and are stored unencrypted on the SD card.
-- RAM history is bounded, but the SD journal grows without compaction, so boot replay gets slower over time.
+- The SD journal is compacted automatically (docs/persistence-journal.md); `/api/v1/health` reports `journal_bytes` and `journal_generation`. Not yet tried on the board. Do not go back to 0.4.0 once a compaction has happened.
 - HTTP is unencrypted; OTA token transport is not suitable outside a trusted LAN.
 - No signed OTA manifest, anti-rollback, or post-boot health confirmation yet.
 - The portal currently accepts a manually entered SSID; it does not yet scan and list nearby networks.

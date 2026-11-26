@@ -43,7 +43,28 @@ class JournaledSyncCore {
   // Replay complete records, discard only an incomplete final record, and
   // rebuild the in-memory state. A complete record with a bad checksum is
   // treated as corruption and is never silently discarded.
-  JournalRecoveryResult recover();
+  // With require_checkpoint (a compacted journal), the file must start with a
+  // complete checkpoint: anything else is corruption, nothing is truncated.
+  JournalRecoveryResult recover(bool require_checkpoint = false);
+
+  // Write the whole current state into an empty log and flush it. Records are
+  // encoded one at a time to keep memory use low.
+  bool writeCheckpoint(ByteLog& target, std::uint64_t& bytes) const;
+  // Read the log back and compare it byte for byte with the current state.
+  bool verifyCheckpoint(ByteLog& target, std::uint64_t bytes) const;
+  // Continue on a log holding a verified checkpoint of the current state.
+  void switchTo(ByteLog& log, std::uint64_t bytes);
+  // Refuse any further write until recover() runs again.
+  void poison();
+
+  // Size of the journal, and of its leading checkpoint (0 if there is none).
+  std::uint64_t bytes() const;
+  std::uint64_t checkpointBytes() const;
+
+  // True when records follow a complete checkpoint, which only happens once a
+  // compacted journal has been put in service. False on a read failure too:
+  // check ok.
+  static bool hasRecordsAfterCheckpoint(ByteLog& log, bool& ok);
 
   // Append and flush the command before applying it in memory. After any
   // uncertain storage error, the instance is poisoned until recover() runs.
@@ -53,7 +74,9 @@ class JournaledSyncCore {
   bool healthy() const;
 
  private:
-  ByteLog& log_;
+  ByteLog* log_;
+  std::uint64_t bytes_ = 0;
+  std::uint64_t checkpoint_bytes_ = 0;
   SyncCore core_;
   bool recovered_;
   bool healthy_;

@@ -1,6 +1,6 @@
 # Append-only persistence journal
 
-**Status:** Experimental portable implementation, v0.1  
+**Status:** Experimental portable implementation, v0.2  
 **Location:** protocol/
 
 ## 1. Design
@@ -51,14 +51,44 @@ Recovery scans records from the beginning:
 
 This distinction is important: an incomplete tail is consistent with power loss during append; a complete but corrupt record may indicate media corruption and must not be hidden.
 
-## 4. Host tests
+## 4. Compaction
 
-The test adapter is an in-memory byte vector. It verifies:
+When the journal reaches 256 KiB **and** four times the size of its leading checkpoint, `RotatingJournal` replaces it by a new generation that starts with a checkpoint of the in-memory state: entities (including deletion tombstones and revisions), the change sequence, the remembered operation results (idempotent retries) and the recent change feed. Records are encoded and compared one at a time, so the extra memory is about one record.
+
+Checkpoint records use the same frame with format version 2 (one begin record with the counts, one record per item, one end record). Firmware that only knows version 1 refuses such a file instead of reading it partially.
+
+Files are never renamed (FatFs cannot replace a file atomically). On the card, with 8.3 names:
+
+| File | Meaning |
+|---|---|
+| journal.bin | generation 0, the original journal |
+| jNNNNNNN.bin | generation N |
+| jNNNNNNN.ok | commit marker of generation N |
+
+Steps, each of which may be interrupted:
+
+1. Remove any leftover of generation N+1.
+2. Write the checkpoint into it and flush.
+3. Reopen it and compare it byte for byte with the state.
+4. Create and flush the marker. This is the switch.
+5. Append to generation N+1; remove generations older than N. N stays as a backup.
+
+At boot the active journal is the highest generation with a marker (generation 0 needs none). An unmarked newer file is an interrupted compaction and is removed once the active journal has been replayed. The central **refuses to start** its data service, and removes nothing, if the active journal is damaged or missing, if its checkpoint is incomplete, if an unmarked file has records after its checkpoint (lost marker), or if journal files exist but none is committed. It never falls back to the backup by itself: that would silently lose acknowledged changes.
+
+If a compaction fails (full card, write error), the new file is removed, the old journal stays in service and the next attempt waits for 64 KiB of growth. If the marker cannot be written nor removed, writes are refused until the next boot.
+
+Going back to firmware 0.4.0 after a compaction is **not supported**: it only reads journal.bin, which is then outdated or gone.
+
+## 5. Host tests
+
+The journal test adapter is an in-memory byte vector. It verifies:
 
 - State and sequence reconstruction after creating a new journal object.
 - Truncation of a partial final header.
 - Fail-closed behavior on a complete record with a bad checksum.
 - Idempotent retry after restart.
+
+`journal_rotation_tests` uses a simulated card and cuts the power at every mutating operation of a compaction and of the tidy-up at boot, with unflushed data lost, kept, torn or replaced by garbage; it also covers a full card, a bad read-back, an uncertain commit, automatic triggering and damaged files. `platform/esp32c6/tests` runs the SD adapter on real files with FreeRTOS stubbed.
 
 Build and run:
 
@@ -66,9 +96,9 @@ Build and run:
     cmake --build build/protocol
     ctest --test-dir build/protocol --output-on-failure
 
-## 5. SD/FatFs adapter requirements
+## 6. SD/FatFs adapter requirements
 
-The current implementation does not yet access an SD card. A future ESP32 adapter must be reviewed and tested against the actual Arduino/ESP-IDF filesystem behavior.
+The ESP32 adapters (platform/esp32c6) still have to be tested against the actual Arduino/ESP-IDF filesystem behavior on the board.
 
 At minimum it must:
 
@@ -83,13 +113,12 @@ At minimum it must:
 
 A successful sync call is only as strong as the filesystem, SD driver, card firmware, and power behavior beneath it. Host tests cannot prove power-loss durability on the real C6 board.
 
-## 6. Known limitations before production
+## 7. Known limitations before production
 
-- The journal is append-only and currently has no checkpointing or compaction. Replay time and storage use grow with every command.
+- The compaction threshold grows with the state: with unusually large entities the journal may reach four times their total before being compacted, and a compaction blocks the single HTTP loop while it runs (duration not measured on hardware).
 - Every submitted attempt is recorded, including retries that the core later classifies as duplicates. This is safe for correctness but can waste space; a later optimization can suppress known duplicate op IDs after exposing a safe lookup API.
 - CRC-32 detects accidental corruption; it is not an authenticity or tamper-protection mechanism.
 - There is no multi-process or multi-thread locking in the portable layer. The platform adapter/service must serialize calls.
-- The in-memory core keeps only a bounded history; the journal file itself still grows without limit.
-- No snapshot format, journal rotation, backup policy, or recovery UI is implemented.
+- The only backup is the previous generation on the same card. No export or recovery UI is implemented.
 
 Do not treat this as a finished database. It is a testable first persistence boundary whose SD adapter and power-loss behavior remain to be proven.
