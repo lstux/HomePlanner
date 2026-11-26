@@ -71,7 +71,7 @@ bool getString(const std::vector<std::uint8_t>& in, std::size_t& pos,
   const std::uint32_t n = get32(&in[pos]);
   pos += 4;
   if (n > kMaxRecordSize || pos + n > in.size()) return false;
-  value.assign(reinterpret_cast<const char*>(&in[pos]), n);
+  value.assign(reinterpret_cast<const char*>(in.data()) + pos, n);
   pos += n;
   return true;
 }
