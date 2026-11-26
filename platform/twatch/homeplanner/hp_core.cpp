@@ -19,6 +19,14 @@ std::string text(JsonVariantConst value) {
 
 int64_t magnitude(int64_t value) { return value < 0 ? -value : value; }
 
+// Real timestamps only (milliseconds), as in web/routine.js.
+const int64_t kRealTime = 1000000000000LL;
+
+int64_t markOf(const Marks& marks, const std::string& key) {
+  const auto found = marks.find(key);
+  return found == marks.end() ? 0 : found->second;
+}
+
 void readMarks(JsonObjectConst object, Marks& marks) {
   for (JsonPairConst pair : object)
     if (pair.value().is<long long>()) marks[pair.key().c_str()] = pair.value().as<long long>();
@@ -106,28 +114,77 @@ void mergeMarks(Marks& marks, const Marks& other) {
   }
 }
 
-Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day) {
+std::string goKey(const std::string& step) { return "_go:" + step; }
+
+Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day, int64_t now_ms) {
   Evaluation e;
-  int mandatory = 0;
-  for (const Step& step : routine.steps) {
+  int mandatory = 0, first = -1, focus = -1;
+  int64_t focus_at = 0, since = 0, last_mandatory = 0;
+  bool started = false;
+  for (size_t i = 0; i < routine.steps.size(); ++i) {
+    const Step& step = routine.steps[i];
+    const int64_t mark = markOf(marks, step.id), go = markOf(marks, goKey(step.id));
+    if (magnitude(mark) > kRealTime && magnitude(mark) > since) since = magnitude(mark);
+    if (magnitude(go) > kRealTime && magnitude(go) > since) since = magnitude(go);
+    if (mark > kRealTime || go > kRealTime) started = true;
     ++e.total;
-    if (isDone(marks, step.id)) {
+    if (mark > 0) {
       ++e.done;
-    } else if (!step.optional) {
+      if (!step.optional && mark > last_mandatory) last_mandatory = mark;
+      continue;
+    }
+    if (go > kRealTime && go > focus_at) {
+      focus_at = go;
+      focus = static_cast<int>(i);
+    }
+    if (first < 0 || (routine.steps[first].optional && !step.optional)) first = static_cast<int>(i);
+    if (!step.optional) {
       ++mandatory;
       e.remaining += step.minutes;
     }
   }
+  e.next = focus >= 0 ? focus : first;
+  e.started = started && e.next >= 0;
+  int remaining = e.remaining * 60;
+  if (e.next >= 0) {
+    const Step& step = routine.steps[e.next];
+    const int64_t gone = e.started && now_ms > since ? (now_ms - since) / 1000 : 0;
+    const int elapsed = gone > 86400 ? 86400 : static_cast<int>(gone);
+    const int planned = step.minutes * 60;
+    e.step_left = planned - elapsed;
+    if (e.started && !step.optional) remaining -= elapsed < planned ? elapsed : planned;
+    e.losing = mandatory && e.started && (step.optional || elapsed > planned);
+  }
+  e.remaining = (remaining + 59) / 60;
   e.left = routine.deadline - minute_of_day;
-  const int slack = e.left - e.remaining;
+  const int left = e.left * 60 - (now_ms > 0 ? static_cast<int>(now_ms / 1000 % 60) : 0);
+  e.slack = left - remaining;
+  // Finished: the advance (or delay) of the last mandatory step is kept.
+  if (e.total && !mandatory && last_mandatory > kRealTime && now_ms > 0)
+    e.slack = left + static_cast<int>((now_ms - last_mandatory) / 1000);
   if (!e.total) e.state = STATE_EMPTY;
   else if (!mandatory) e.state = STATE_DONE;
-  else if (e.left <= 0) e.state = STATE_PASSED;
-  else if (slack < 0) e.state = STATE_LATE;
-  else if (slack < 5) e.state = STATE_TIGHT;
-  else if (slack < 15) e.state = STATE_ONTIME;
+  else if (left <= 0) e.state = STATE_PASSED;
+  else if (e.slack < 0) e.state = STATE_LATE;
+  else if (e.slack < 5 * 60) e.state = STATE_TIGHT;
+  else if (e.slack < 15 * 60) e.state = STATE_ONTIME;
   else e.state = STATE_EARLY;
   return e;
+}
+
+int gaugePercent(int slack_seconds) {
+  const int span = 15 * 60;
+  const int clamped = slack_seconds > span ? span : slack_seconds < -span ? -span : slack_seconds;
+  return clamped * 100 / span;
+}
+
+std::string gaugeText(int slack_seconds) {
+  const int minutes = static_cast<int>(magnitude(slack_seconds) / 60);
+  if (!minutes) return "Pile poil";
+  char text[40];
+  if (minutes < 60) snprintf(text, sizeof(text), "%d min %s", minutes, slack_seconds > 0 ? "d'avance" : "de retard");
+  else snprintf(text, sizeof(text), "%d h %02d %s", minutes / 60, minutes % 60, slack_seconds > 0 ? "d'avance" : "de retard");
+  return text;
 }
 
 std::string progressToJson(const Progress& progress) {

@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { askAdult, pinHash, lockNow, validPin } from "../lock.js";
 import { describe, advice } from "../weather.js";
-import { distanceKm, formatKm, whereIs } from "../map.js";
+import { distanceKm, formatKm, whereIs, nearbyPlace } from "../map.js";
+import { parseAddresses } from "../geo.js";
+import { BASES } from "../basemaps.js";
+import { DEFAULT_BINS, holidays, holidayBefore, collections, reminder } from "../bins.js";
 import { telLink } from "../contacts.js";
 
 test("mode adulte : code demandé, puis déverrouillé quelques minutes", () => {
@@ -41,4 +44,51 @@ test("carte : distance, position d'un proche, lien d'appel", () => {
   assert.equal(whereIs({ homeId: "a", nowId: "b" }, places).id, "b");
   assert.equal(whereIs({ homeId: "a", nowId: "gone" }, places).id, "a");
   assert.equal(telLink("06 12.34-56 78"), "tel:0612345678");
+});
+
+test("adresses : lecture de la réponse, lieu voisin réutilisé", () => {
+  const f = (label, score, lat = 48.1, lon = -1.6) => ({ geometry: { coordinates: [lon, lat] }, properties: { label, score } });
+  assert.deepEqual(parseAddresses({ features: [f("12 Rue des Lilas 35000 Rennes", 0.9), f("Autre", 0.2), { properties: {} }] }),
+    [{ label: "12 Rue des Lilas 35000 Rennes", lat: 48.1, lon: -1.6 }]);
+  assert.deepEqual(parseAddresses(null), []);
+  const places = [{ id: "a", lat: 48.1, lon: -1.6 }];
+  assert.equal(nearbyPlace(places, { lat: 48.1002, lon: -1.6 }).id, "a");
+  assert.equal(nearbyPlace(places, { lat: 48.101, lon: -1.6 }), null);
+});
+
+test("fonds de carte : adresses complètes et sources citées", () => {
+  for (const base of Object.values(BASES)) {
+    for (const part of ["https://", "{z}", "{x}", "{y}"]) assert.ok(base.url.includes(part));
+    assert.ok(base.options.attribution);
+  }
+});
+
+test("poubelles : un jeudi sur deux pour le tri, chaque mardi pour le reste", () => {
+  const list = collections(DEFAULT_BINS, {}, "2026-11-26", 20).map((c) => `${c.rule.id} ${c.date}`);
+  assert.deepEqual(list, ["tri 2026-11-26", "reste 2026-12-01", "reste 2026-12-08", "tri 2026-12-10", "reste 2026-12-15"]);
+});
+
+test("poubelles : jours fériés, décalage et ajustements", () => {
+  assert.equal(holidays(2027).get("2027-03-29"), "Lundi de Pâques");
+  assert.equal(holidays(2027).get("2027-05-06"), "Ascension");
+  assert.equal(holidayBefore("2027-03-30"), "Lundi de Pâques");
+  assert.equal(holidayBefore("2026-11-12"), "11 novembre");
+  assert.equal(holidayBefore("2026-12-24"), ""); // Noël tombe après
+  const easterTuesday = (shift, o = {}) => collections({ ...DEFAULT_BINS, shift }, o, "2027-03-29", 3).find((c) => c.rule.id === "reste");
+  assert.equal(easterTuesday(true).date, "2027-03-31");
+  assert.equal(easterTuesday(false).date, "2027-03-30");
+  const moved = { "reste.2027-03-30": { move: "2027-04-02", t: 1 } };
+  assert.equal(easterTuesday(true, moved).date, "2027-04-02");
+  assert.equal(easterTuesday(true, { "reste.2027-03-30": { skip: true, t: 1 } }).skipped, true);
+});
+
+test("poubelles : rappel la veille et le matin", () => {
+  const at = (d, h, o = {}) => reminder(DEFAULT_BINS, o, new Date(2026, 10, d, h));
+  assert.equal(at(24, 12), null);
+  assert.equal(at(25, 18).when, "eve");
+  assert.equal(at(25, 18).items[0].rule.id, "tri");
+  assert.equal(at(26, 7).when, "morning");
+  assert.equal(at(26, 7, { "tri.2026-11-26": { out: true, t: 1 } }), null);
+  assert.equal(at(26, 12), null);
+  assert.equal(at(30, 20).items[0].rule.id, "reste");
 });

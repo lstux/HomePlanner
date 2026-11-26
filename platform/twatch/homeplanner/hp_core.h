@@ -52,6 +52,11 @@ struct Evaluation {
   int remaining = 0;  // minutes of mandatory steps still to do
   int done = 0;
   int total = 0;
+  int slack = 0;           // seconds ahead of schedule, negative when late
+  int next = -1;           // index of the current step, -1 when none
+  bool started = false;    // the countdown of the current step is running
+  bool losing = false;     // the current step overruns: the margin shrinks
+  int step_left = 0;       // seconds left for the current step, negative when over
 };
 
 // Returns false (config untouched) when the JSON is not a usable configuration.
@@ -65,7 +70,13 @@ int64_t nextMark(int64_t previous, bool checked, int64_t now_ms);
 // Adds the marks of other into marks: the latest action wins.
 void mergeMarks(Marks& marks, const Marks& other);
 
-Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day);
+// Key of the "I am doing this step" mark.
+std::string goKey(const std::string& step);
+// now_ms (0 if unknown) gives the seconds and runs the step countdown.
+Evaluation evaluate(const Routine& routine, const Marks& marks, int minute_of_day, int64_t now_ms = 0);
+// Gauge of the schedule: -100 (15 min late) ... 0 (on time) ... 100 (15 min ahead).
+int gaugePercent(int slack_seconds);
+std::string gaugeText(int slack_seconds);
 
 std::string progressToJson(const Progress& progress);
 bool progressFromJson(const char* json, Progress& progress);

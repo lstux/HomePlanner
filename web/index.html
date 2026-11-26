@@ -19,6 +19,12 @@
 
   <main id="home">
     <button id="weather-chip" class="weather-chip" type="button" hidden></button>
+    <section id="bins-reminder" class="bins-reminder" hidden>
+      <img src="./mascots/rabbit-think.webp" alt="" width="64" height="64">
+      <div><strong id="bins-title"></strong><small id="bins-note"></small>
+        <div class="row"><button id="bins-out" class="button" type="button"></button><button id="bins-dates" class="button secondary" type="button">Les dates</button></div></div>
+    </section>
+    <button id="bins-chip" class="weather-chip bins-chip" type="button" hidden></button>
     <nav id="members" class="chips" aria-label="Qui es-tu ?"></nav>
     <select id="routine-select" aria-label="Routine"></select>
 
@@ -30,6 +36,19 @@
     <section id="clock" class="clock">
       <div><span id="deadline-label"></span><strong id="countdown"></strong></div>
       <div class="clock-side"><span id="status-label" class="badge"></span><small id="estimate"></small></div>
+    </section>
+
+    <section id="gauge" class="gauge" aria-label="Avance ou retard">
+      <strong id="gauge-label"></strong>
+      <div class="gauge-track"><div id="gauge-fill"></div><i class="gauge-center"></i><div id="gauge-needle"></div></div>
+      <div class="gauge-legend"><span>Retard</span><span>Pile poil</span><span>Avance</span></div>
+    </section>
+
+    <section id="timer" class="timer" hidden>
+      <div class="timer-head"><strong id="timer-title"></strong><span id="timer-value" role="timer"></span></div>
+      <div class="track"><div id="timer-bar"></div></div>
+      <small id="timer-hint"></small>
+      <button id="timer-go" class="button" type="button">▶ C'est parti</button>
     </section>
 
     <div class="progress"><div class="track"><div id="progress-bar"></div></div><span id="progress-text"></span></div>
@@ -64,13 +83,32 @@
     </details>
   </main>
 
+  <main id="bins" hidden>
+    <h1>Les poubelles</h1>
+    <p class="muted">À sortir la veille au soir. Les décalages de jours fériés dépendent de la commune : vérifie et ajuste avec ✏️.</p>
+    <ul id="bin-list" class="steps"></ul>
+    <button id="bin-rules-open" class="button" type="button">Régler les jours de ramassage</button>
+    <section id="bin-rules-panel" class="panel" hidden>
+      <div id="bin-rules"></div>
+      <label class="inline"><input id="bin-shift" type="checkbox">Décaler d'un jour après un jour férié</label>
+      <div class="row"><button id="bin-add" class="button secondary" type="button">+ Une poubelle</button></div>
+      <div class="row"><button id="bin-rules-save" class="button" type="button">Enregistrer</button><button id="bin-rules-cancel" class="button secondary" type="button">Annuler</button></div>
+    </section>
+  </main>
   <main id="map-view" hidden>
     <h1>La carte</h1>
     <p class="eyebrow">OÙ EST… ?</p>
     <nav id="map-people" class="chips"></nav>
     <nav id="map-places" class="chips"></nav>
     <p id="map-empty" class="muted">Commence par ajouter la maison.</p>
-    <p id="map-hint" class="spare" hidden>Touche la carte à l'endroit voulu.</p>
+    <div class="map-bar">
+      <button id="place-add" type="button">➕ Lieu</button>
+      <button id="search-toggle" type="button">🔍 Chercher</button>
+      <select id="map-base" aria-label="Fond de carte"></select>
+    </div>
+    <form id="place-search" class="row search" hidden><input id="place-query" type="search" placeholder="Adresse ou ville" aria-label="Adresse ou ville" required><button class="button secondary">OK</button></form>
+    <ul id="place-results" class="results"></ul>
+    <p id="map-hint" class="spare" hidden></p>
     <div id="map" class="map"></div>
     <section id="map-card" class="panel" hidden></section>
     <form id="place-form" class="panel" hidden>
@@ -79,8 +117,6 @@
       <label class="field"><span>Type</span><select id="place-kind"><option value="home">Maison</option><option value="outing">Où on va</option><option value="family">Chez un proche</option><option value="other">Autre</option></select></label>
       <div class="row"><button class="button">Enregistrer</button><button id="place-cancel" class="button secondary" type="button">Annuler</button><button id="place-delete" class="button danger" type="button">Supprimer</button></div>
     </form>
-    <button id="place-add" class="button" type="button">+ Ajouter un lieu</button>
-    <form id="place-search" class="row search"><input id="place-query" type="text" placeholder="Aller à une ville" aria-label="Ville" required><button class="button secondary">Chercher</button></form>
   </main>
 
   <main id="contacts" hidden>
@@ -93,7 +129,10 @@
       <label class="field"><span>Lien</span><input id="contact-relation" type="text" maxlength="30" placeholder="Mamie, tonton…"></label>
       <label class="field"><span>Emoji</span><input id="contact-emoji" type="text" maxlength="8" placeholder="👵"></label>
       <label class="field"><span>Téléphone</span><input id="contact-phone" type="tel" maxlength="24"></label>
-      <label class="field"><span>Habite à (lieu de la carte)</span><select id="contact-homeId"></select></label>
+      <label class="field"><span>Habite à : un lieu déjà sur la carte</span><select id="contact-homeId"></select></label>
+      <label class="field" for="contact-address"><span>… ou une nouvelle adresse</span></label>
+      <div class="row search"><input id="contact-address" type="search" maxlength="120" placeholder="12 rue des Lilas, Rennes" autocomplete="off"><button id="address-search" class="button secondary" type="button">Chercher</button></div>
+      <ul id="address-results" class="results"></ul>
       <label class="field"><span>En ce moment</span><select id="contact-nowId"></select></label>
       <label class="field"><span>Note</span><input id="contact-note" type="text" maxlength="120"></label>
       <div class="row"><button class="button">Enregistrer</button><button id="contact-cancel" class="button secondary" type="button">Annuler</button><button id="contact-delete" class="button danger" type="button">Supprimer</button></div>
