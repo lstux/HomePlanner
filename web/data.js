@@ -12,6 +12,8 @@ const evening = () => [
   step("ranger", "🧸", "Ranger ses jouets", 10),
   step("douche", "🛁", "Douche ou bain", 15),
   step("pyjama", "🌙", "Mettre son pyjama", 4),
+  { ...step("libre", "🧩", "Quartier libre", 0), free: true },
+  { ...step("repas", "🍽️", "À table", 30), at: "19:00" },
   step("dents", "🪥", "Se brosser les dents", 3),
   step("histoire", "📖", "Histoire du soir", 15, true),
 ];

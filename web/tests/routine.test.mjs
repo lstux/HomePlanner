@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { suggestRoutine, evaluate, formatDuration, formatClock, gauge, goKey, mark, dateKey } from "../routine.js";
+import { suggestRoutine, evaluate, formatDuration, formatClock, gauge, goKey, mark, dateKey, stepTime, shiftStep } from "../routine.js";
 import { defaultConfig } from "../data.js";
 import { pickLine } from "../mascots.js";
 
@@ -89,4 +89,54 @@ test("jauge pile poil et chrono", () => {
   assert.equal(formatClock(15), "15:00");
   assert.equal(formatClock(0.5), "0:30");
   assert.equal(formatClock(-2.25), "+2:15");
+});
+
+const dinner = { deadline: "20:30", deadlineLabel: "Au lit", steps: [
+  { id: "douche", minutes: 15 }, { id: "libre", minutes: 0, free: true },
+  { id: "repas", label: "À table", minutes: 30, at: "19:00" }, { id: "dents", minutes: 5 },
+] };
+const evening = (h, m) => new Date(2026, 10, 23, h, m);
+
+test("soir : la jauge vise le repas, le quartier libre prend le reste", () => {
+  const t = (h, m) => evening(h, m).getTime();
+  let e = evaluate(dinner, {}, evening(18, 30));
+  assert.equal(e.target.time, "19:00");
+  assert.equal(e.slack, 15);
+  assert.equal(e.next.id, "douche");
+  const done = { douche: t(18, 40) };
+  e = evaluate(dinner, done, evening(18, 40));
+  assert.equal(e.next.id, "libre");
+  assert.equal(e.timer.free, true);
+  assert.equal(e.timer.available, 20);
+  e = evaluate(dinner, done, evening(18, 50));
+  assert.equal(e.timer.available, 10);
+  assert.equal(e.losing, false);
+  e = evaluate(dinner, done, evening(19, 0)); // l'heure du repas
+  assert.equal(e.next.id, "repas");
+  assert.equal(e.target.time, "20:30");
+  assert.equal(e.timer.started, true);
+  assert.equal(evaluate(dinner, done, evening(19, 10)).timer.elapsed, 10);
+  assert.equal(evaluate(dinner, done, evening(19, 10)).slack, 55);
+});
+
+test("soir : repas en retard sur les étapes, ou décalé à cause des pâtes", () => {
+  let e = evaluate(dinner, {}, evening(19, 5));
+  assert.equal(e.state, "passed");
+  assert.equal(e.next.id, "douche");
+  const done = { douche: evening(18, 40).getTime(), libre: evening(18, 55).getTime() };
+  e = evaluate(dinner, done, evening(18, 55));
+  assert.equal(e.next.id, "repas");
+  assert.equal(e.timer.waiting, true);
+  assert.equal(e.timer.wait, 5);
+  shiftStep(dinner.steps[2], done, 15, evening(18, 56));
+  assert.equal(stepTime(dinner.steps[2], done), "19:15");
+  assert.equal(evaluate(dinner, done, evening(19, 5)).timer.wait, 10);
+  shiftStep(dinner.steps[2], done, -5, evening(19, 5));
+  assert.equal(stepTime(dinner.steps[2], done), "19:10");
+  shiftStep(dinner.steps[2], done, 5, evening(19, 20)); // heure passée : depuis maintenant
+  assert.equal(stepTime(dinner.steps[2], done), "19:25");
+  done[goKey("repas")] = evening(19, 21).getTime(); // finalement c'est servi
+  e = evaluate(dinner, done, evening(19, 22));
+  assert.equal(e.timer.started, true);
+  assert.equal(e.target.time, "20:30");
 });

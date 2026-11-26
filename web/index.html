@@ -38,6 +38,8 @@
       <div class="clock-side"><span id="status-label" class="badge"></span><small id="estimate"></small></div>
     </section>
 
+    <p id="pin-notice" class="spare" hidden><span id="pin-notice-text"></span> <button id="pin-cancel" class="button secondary" type="button">Annuler</button></p>
+
     <section id="gauge" class="gauge" aria-label="Avance ou retard">
       <strong id="gauge-label"></strong>
       <div class="gauge-track"><div id="gauge-fill"></div><i class="gauge-center"></i><div id="gauge-needle"></div></div>
@@ -49,6 +51,11 @@
       <div class="track"><div id="timer-bar"></div></div>
       <small id="timer-hint"></small>
       <button id="timer-go" class="button" type="button">▶ C'est parti</button>
+    </section>
+
+    <section id="anchor" class="anchor" hidden>
+      <strong id="anchor-label"></strong>
+      <div><button type="button" class="mini" data-shift="-5">−5</button><button type="button" class="mini" data-shift="5">+5</button><button type="button" class="mini" data-shift="15">+15</button></div>
     </section>
 
     <div class="progress"><div class="track"><div id="progress-bar"></div></div><span id="progress-text"></span></div>
@@ -133,7 +140,6 @@
       <label class="field" for="contact-address"><span>… ou une nouvelle adresse</span></label>
       <div class="row search"><input id="contact-address" type="search" maxlength="120" placeholder="12 rue des Lilas, Rennes" autocomplete="off"><button id="address-search" class="button secondary" type="button">Chercher</button></div>
       <ul id="address-results" class="results"></ul>
-      <label class="field"><span>En ce moment</span><select id="contact-nowId"></select></label>
       <label class="field"><span>Note</span><input id="contact-note" type="text" maxlength="120"></label>
       <div class="row"><button class="button">Enregistrer</button><button id="contact-cancel" class="button secondary" type="button">Annuler</button><button id="contact-delete" class="button danger" type="button">Supprimer</button></div>
     </form>
@@ -155,9 +161,11 @@
     <section class="panel">
       <h2>Mode adulte</h2>
       <p class="muted">Un code protège les réglages, la remise à zéro, les contacts et les lieux. Les cases des routines restent libres. C'est un garde-fou, pas un coffre-fort.</p>
-      <p id="pin-state"></p>
-      <label class="field"><span>Nouveau code (4 à 8 chiffres)</span><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
-      <button id="pin-remove" class="link" type="button">Retirer le code</button>
+      <p id="pin-state" class="muted"></p>
+      <div id="pin-list"></div>
+      <label class="field"><span>Ajouter un adulte, ou redonner un code (même nom)</span><input id="pin-name" type="text" maxlength="20" placeholder="Prénom de l'adulte" autocomplete="off"></label>
+      <label class="field"><span>Code (4 à 8 chiffres)</span><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <button id="pin-add" class="button secondary" type="button">+ Ajouter ce code</button>
     </section>
     <p class="muted"><a href="./guide/">Guide d'installation et de test</a><br><a href="./flash/">Installer le firmware d'une centrale (ordinateur)</a></p>
     <div class="save-bar">
@@ -167,7 +175,7 @@
     <details class="panel">
       <summary>Synchronisation avec la maison</summary>
       <p class="muted">Partage les réglages et la progression du jour entre les téléphones, via la centrale C6. Sur le premier téléphone connecté, ses réglages deviennent ceux de la maison ; les suivants les reprennent.</p>
-      <label class="field"><span>Adresse de la centrale (affichée sur son écran)</span><input id="server-url" type="url" placeholder="http://192.168.1.50"></label>
+      <label class="field"><span>Adresse de la centrale (affichée sur son écran)</span><input id="server-url" type="url" placeholder="http://homeplanner.local"></label>
       <label class="field"><span>Code d'appairage (affiché sur son écran)</span><input id="pairing-key" type="text" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>
       <button id="save-server" class="button secondary" type="button">Connecter</button>
       <p id="server-state" role="status">Non configurée</p>

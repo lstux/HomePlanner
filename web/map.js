@@ -13,8 +13,8 @@ export function distanceKm(a, b) {
   return 12742 * Math.asin(Math.sqrt(h));
 }
 export const formatKm = (km) => (km < 1 ? `${Math.round(km * 100) * 10} m` : km < 10 ? `${km.toFixed(1).replace(".", ",")} km` : `${Math.round(km)} km`);
-// Lieu où se trouve une personne : « en ce moment » s'il est renseigné, sinon chez elle.
-export const whereIs = (contact, places) => places.find((p) => p.id === contact.nowId) || places.find((p) => p.id === contact.homeId) || null;
+// Lieu d'une personne : là où elle habite.
+export const whereIs = (contact, places) => places.find((p) => p.id === contact.homeId) || null;
 
 export const position = (p) => ({ lat: Math.round(p.lat * 1e5) / 1e5, lon: Math.round(p.lon * 1e5) / 1e5 });
 // Lieu déjà connu à cette adresse (à une cinquantaine de mètres).
@@ -78,7 +78,7 @@ export function initMap(app) {
       el("h2", { textContent: person ? `${person.emoji || "🙂"} ${person.name} : ${place.emoji} ${place.name}` : `${place.emoji} ${place.name}` }),
       place.address ? el("p", { className: "muted", textContent: place.address }) : null,
       home ? el("p", { textContent: `À ${formatKm(distanceKm(home, place))} de la maison, à vol d'oiseau.` }) : null,
-      here.length ? el("p", { textContent: "Ici en ce moment : " + here.map((c) => c.name).join(", ") }) : null,
+      here.length ? el("p", { textContent: "Habite ici : " + here.map((c) => c.name).join(", ") }) : null,
       el("div", { className: "row" },
         el("a", { className: "button secondary", textContent: "Itinéraire", target: "_blank", rel: "noopener",
           href: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lon}` }),
