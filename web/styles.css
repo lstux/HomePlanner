@@ -152,3 +152,16 @@ form.panel .row { flex-wrap: wrap; }
 .step-edit .row .muted { margin: 0; }
 .step-edit .row:nth-child(2) { flex-wrap: wrap; }
 .step-edit .row select { min-width: 140px; }
+
+/* Accueil */
+.notice { margin: 10px auto; max-width: 560px; }
+.dash-clock { text-align: center; margin: 4px 0 8px; }
+.dash-clock strong { display: block; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dash-clock span { display: block; font-weight: 700; color: #5f726a; }
+.dash-clock span::first-letter { text-transform: uppercase; }
+.dash-card { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; background: #fff; color: inherit; font: inherit; border: 1px solid #e3e9e1; border-radius: 18px; padding: 14px 16px; margin: 10px 0; }
+.dash-card[hidden] { display: none; }
+.dash-days { display: flex; justify-content: space-around; gap: 8px; }
+.dash-day { display: flex; flex-direction: column; align-items: center; }
+.dash-day .day-icon { font-size: 40px; }
+#dashboard[data-night=true] .dash-clock strong { color: #4a5a8a; }

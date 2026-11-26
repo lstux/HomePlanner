@@ -17,7 +17,24 @@
     <button id="open-settings" class="icon-button" type="button" aria-label="Réglages">⚙️</button>
   </header>
 
-  <main id="home">
+  <p id="pin-notice" class="spare notice" hidden><span id="pin-notice-text"></span> <button id="pin-cancel" class="button secondary" type="button">Annuler</button></p>
+
+  <main id="dashboard" hidden>
+    <section class="dash-clock"><strong id="dash-time"></strong><span id="dash-date"></span></section>
+    <section class="mascot-zone">
+      <p id="dash-speech" class="speech"></p>
+      <img id="dash-mascot" class="mascot" alt="" width="180" height="180">
+    </section>
+    <button id="dash-weather" class="dash-card" type="button"><span id="dash-weather-days" class="dash-days"></span><span id="dash-weather-tip"></span></button>
+    <section id="dash-bins" class="dash-card" hidden>
+      <strong id="dash-bins-title"></strong><small id="dash-bins-note"></small>
+      <div class="row"><button id="dash-bins-out" class="button" type="button"></button><button id="dash-bins-dates" class="button secondary" type="button">Les dates</button></div>
+    </section>
+    <button id="dash-shopping" class="dash-card" type="button" hidden><strong>🛒 Courses</strong><span id="dash-shopping-text"></span></button>
+    <button id="dash-routine" class="dash-card" type="button" hidden><strong>✅ Prochaine routine</strong><span id="dash-routine-text"></span></button>
+  </main>
+
+  <main id="home" hidden>
     <button id="weather-chip" class="weather-chip" type="button" hidden></button>
     <section id="bins-reminder" class="bins-reminder" hidden>
       <img src="./mascots/rabbit-think.webp" alt="" width="64" height="64">
@@ -37,8 +54,6 @@
       <div><span id="deadline-label"></span><strong id="countdown"></strong></div>
       <div class="clock-side"><span id="status-label" class="badge"></span><small id="estimate"></small></div>
     </section>
-
-    <p id="pin-notice" class="spare" hidden><span id="pin-notice-text"></span> <button id="pin-cancel" class="button secondary" type="button">Annuler</button></p>
 
     <section id="gauge" class="gauge" aria-label="Avance ou retard">
       <strong id="gauge-label"></strong>
@@ -188,7 +203,8 @@
     </details>
   </main>
   <nav id="tabs" class="tabs" aria-label="Rubriques">
-    <button type="button" data-view="home"><span>🏠</span>Routine</button>
+    <button type="button" data-view="dashboard"><span>🏠</span>Accueil</button>
+    <button type="button" data-view="home"><span>✅</span>Routine</button>
     <button type="button" data-view="shopping"><span>🛒</span>Courses</button>
     <button type="button" data-view="weather"><span>🌤️</span>Météo</button>
     <button type="button" data-view="map-view"><span>🗺️</span>Carte</button>
