@@ -11,6 +11,7 @@ import { initWeather } from "./weather.js";
 import { initMap } from "./map.js";
 import { initContacts } from "./contacts.js";
 import { initBins } from "./bins.js";
+import { makeBackup, readBackup, restore, backupName, MAX_FILE } from "./backup.js";
 import { $, el } from "./dom.js";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -374,6 +375,31 @@ $("save-settings").onclick = () => {
   config = draft; manualRoutine = null; reaction = null;
   if (!saveConfig(config)) { alert("Impossible d'enregistrer sur cet appareil."); return; }
   show("home"); central.sync();
+};
+$("backup-export").onclick = () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(makeBackup(config, lists), null, 1)], { type: "application/json" }));
+  el("a", { href: url, download: backupName(dateKey(new Date())) }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+$("backup-import").onclick = () => $("backup-file").click();
+$("backup-file").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  let backup;
+  try {
+    if (file.size > MAX_FILE) throw new Error("Ce fichier n'est pas une sauvegarde Home.");
+    backup = readBackup(await file.text());
+  } catch (error) { alert(error.message); return; }
+  const when = new Date(backup.date).toLocaleDateString("fr-FR", { dateStyle: "long" });
+  const count = (n) => Object.keys(backup.lists[n]).length;
+  if (!confirm(`Restaurer la sauvegarde du ${when} ?\n${backup.config.routines.length} routines, ${count("contacts")} contact(s), ${count("places")} lieu(x), ${count("shopping")} article(s).\n\nLes réglages et routines actuels seront remplacés, sur tous les téléphones reliés. Les contacts, lieux et courses ajoutés depuis sont gardés.`)) return;
+  show("home");
+  await central.sync(); // part de la dernière version de la maison, pour que la restauration l'emporte
+  config = restore(config, lists, backup);
+  meta.dirty = true; memberId = config.members[0].id; manualRoutine = null; reaction = null;
+  saveAll(); renderView(); central.soon();
+  alert("Sauvegarde restaurée.");
 };
 $("routine-select").onchange = (e) => { manualRoutine = e.target.value; reaction = null; render(); };
 $("reset-day").onclick = () => { if (!adult()) return; const d = doneMap(); for (const k in d) if (!k.startsWith("_at:")) d[k] = mark(d[k], false); saveProgress(progress); reaction = null; render(); central.soon(); };
