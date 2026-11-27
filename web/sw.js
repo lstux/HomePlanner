@@ -1,8 +1,8 @@
-const CACHE = "homeplanner-pwa-v11";
+const CACHE = "homeplanner-pwa-v12";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./sync.js",
   "./dom.js", "./lists.js", "./lock.js", "./shopping.js", "./weather.js", "./map.js", "./geo.js", "./basemaps.js", "./bins.js", "./contacts.js", "./backup.js", "./dashboard.js", "./moments.js",
   "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
-  "./manifest.webmanifest", "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./mascots/duo-walk.webp",
+  "./manifest.webmanifest", "./icons/home-64.png", "./icons/home-192.png", "./icons/home-512.png", "./icons/home-maskable-512.png", "./mascots/duo-walk.webp",
   ...["fox", "rabbit"].flatMap((who) => ["content", "bravo", "think", "comfort"].map((mood) => `./mascots/${who}-${mood}.webp`))];
 
 self.addEventListener("install", (event) => event.waitUntil(
