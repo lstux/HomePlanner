@@ -5,93 +5,102 @@
 #include <string.h>
 
 namespace {
-// En gros si ça tient, sinon en petit.
-void drawFit(int y, const char* text, uint16_t fg) { drawText(y, text, textWidth(text, 2) <= LCD_W - 4 ? 2 : 1, fg, C_BG); }
+constexpr int MIDDLE = LCD_W / 2;
+void line(int y, const char* text, const HpFont& font, uint16_t fg) { drawText(y, text, font, fg, hpTheme().bg); }
+void fit(int y, const char* text, uint16_t fg, const HpFont& largest = hp_font_large) { drawFitIn(0, LCD_W, y, text, fg, largest); }
 }  // namespace
 
 void hpScreenMessage(const char* title, const char* detail) {
-  drawFill(C_BG);
-  drawText(18, "HOMEPLANNER", 2, C_CYAN, C_BG);
-  drawText(150, title, 1, C_WHITE, C_BG);
-  if (detail) drawText(170, detail, 1, C_YELLOW, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(12, "HomePlanner", hp_font_medium, t.accent);
+  drawBadge(MIDDLE, 128, 80, t.mascotDisc, img_fox_content);
+  fit(222, title, t.text, hp_font_medium);
+  if (detail) fit(256, detail, t.muted, hp_font_small);
 }
 
 void hpScreenInfo(const HpStatus& s) {
-  drawFill(C_BG);
-  drawText(8, "HOMEPLANNER", 2, C_CYAN, C_BG);
-  drawText(44, s.ap ? "WI-FI A CONFIGURER" : "WI-FI CONNECTE", 1, s.ap ? C_YELLOW : C_GREEN, C_BG);
-  drawText(62, s.wifi, 1, C_WHITE, C_BG);
-  drawText(86, s.ip, strlen(s.ip) > 13 ? 1 : 2, C_CYAN, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(6, "HomePlanner", hp_font_medium, t.accent);
+  line(40, s.ap ? "Wi-Fi à configurer" : "Wi-Fi connecté", hp_font_small, s.ap ? t.warn : t.good);
+  fit(62, s.wifi, t.text, hp_font_small);
+  fit(86, s.ip, t.text);
   if (!s.ap) {
     char address[40];
     snprintf(address, sizeof(address), "%s.local", s.host);
-    drawText(110, address, 1, C_CYAN, C_BG);
+    fit(124, address, t.muted, hp_font_small);
   }
-  drawText(140, s.sd ? "CARTE SD : OK" : "CARTE SD : ABSENTE", 1, s.sd ? C_GREEN : C_ORANGE, C_BG);
-  drawText(158, s.journal ? "JOURNAL : OK" : "JOURNAL : EN PANNE", 1, s.journal ? C_GREEN : C_ORANGE, C_BG);
+  line(150, s.sd ? "Carte SD : OK" : "Carte SD : absente", hp_font_small, s.sd ? t.good : t.late);
+  line(172, s.journal ? "Journal : OK" : "Journal : en panne", hp_font_small, s.journal ? t.good : t.late);
   if (s.ap) {
-    drawText(200, "REJOINS CE RESEAU,", 1, C_GREY, C_BG);
-    drawText(220, "PUIS 192.168.4.1", 1, C_YELLOW, C_BG);
+    line(214, "Rejoins ce réseau,", hp_font_small, t.muted);
+    line(238, "puis ouvre", hp_font_small, t.muted);
+    fit(264, "192.168.4.1", t.accent);
   } else {
-    drawText(196, "CODE D'APPAIRAGE", 1, C_GREY, C_BG);
-    drawText(216, s.key, 3, C_YELLOW, C_BG);
+    line(214, "Code d'appairage", hp_font_small, t.muted);
+    fit(240, s.key, t.accent);
   }
 }
 
 void hpScreenPairing(const char* key) {
-  drawFill(C_BG);
-  drawText(18, "APPAIRAGE", 2, C_CYAN, C_BG);
-  drawImage(11, 48, img_fox_content);
-  drawText(212, "TAPE CE CODE :", 1, C_WHITE, C_BG);
-  drawText(236, key, 3, C_YELLOW, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(10, "Appairage", hp_font_large, t.accent);
+  drawBadge(MIDDLE, 134, 80, t.mascotDisc, img_fox_content);
+  line(228, "Tape ce code :", hp_font_small, t.text);
+  fit(256, key, t.accent);
 }
 
 void hpScreenIdle(int minute, int day, int month) {
-  drawFill(C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
   // Le renard et le lapin se relaient chaque minute.
-  drawImage(11, 36, minute >= 0 && minute % 2 ? img_rabbit_content : img_fox_content);
+  drawBadge(MIDDLE, 106, 83, t.mascotDisc, minute >= 0 && minute % 2 ? img_rabbit_content : img_fox_content);
   if (minute < 0) {
-    drawText(224, "HOME", 4, C_WHITE, C_BG);
+    line(224, "Home", hp_font_large, t.text);
     return;
   }
   char text[16];
-  snprintf(text, sizeof(text), "%02d:%02d", (minute / 60) % 24, minute % 60);
-  drawText(214, text, 5, C_WHITE, C_BG);
+  clockText(text, sizeof(text), minute);
+  line(214, text, hp_font_clock, t.text);
   snprintf(text, sizeof(text), "%02d/%02d", day, month);
-  drawText(272, text, 2, C_GREY, C_BG);
+  line(272, text, hp_font_medium, t.muted);
 }
 
 void hpScreenRoutine(int minute, const hpui::RoutineView& view) {
-  drawFill(C_BG);
-  drawFit(8, view.name.c_str(), C_CYAN);
-  drawImage(11, 30, mascot(minute % 2, view.mood));
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  fit(2, view.name.c_str(), t.accent);
+  drawBadge(MIDDLE, 116, 77, t.mascotDisc, mascot(minute % 2, view.mood));
   // Jauge : au milieu « pile poil », à droite l'avance, à gauche le retard (15 min au bord).
   const int percent = hp::gaugePercent(view.slack);
-  const uint16_t tone = view.done || view.slack >= 0 ? C_GREEN : view.slack > -5 * 60 ? C_YELLOW : C_ORANGE;
-  constexpr int left = 11, width = 150, middle = left + width / 2, y = 188;
-  drawRect(left, y, width, 12, C_DARK);
+  const uint16_t tone = view.done || view.slack >= 0 ? t.good : view.slack > -5 * 60 ? t.warn : t.late;
+  constexpr int left = 11, width = 150, middle = left + width / 2, y = 201;
+  drawRound(left, y, width, 12, 6, t.track, t.bg);
   const int length = percent * (width / 2) / 100;
   drawRect(length < 0 ? middle + length : middle, y, length < 0 ? -length : length, 12, tone);
-  drawRect(middle - 1, y - 4, 2, 20, C_WHITE);
-  const std::string label = view.done ? "FINI" : view.passed ? "C'EST L'HEURE" : hpui::gaugeShort(view.slack);
-  drawFit(212, label.c_str(), tone);
+  drawRect(middle - 1, y - 4, 3, 20, t.text);
+  const std::string label = view.done ? "Fini !" : view.passed ? "C'est l'heure" : hpui::gaugeShort(view.slack);
+  fit(218, label.c_str(), tone, hp_font_medium);
   char text[16];
   clockText(text, sizeof(text), minute);
-  drawText(240, text, 4, C_WHITE, C_BG);
-  drawFit(282, view.target.c_str(), C_GREY);
+  line(250, text, hp_font_clock, t.text);
   clockText(text, sizeof(text), view.target_minute);
-  drawText(300, text, 2, C_GREY, C_BG);
+  const std::string target = view.target + " " + text;
+  fit(298, target.c_str(), t.muted, hp_font_small);
 }
 
 void hpScreenWeather(int minute, const hpui::Forecast& forecast) {
-  drawFill(C_BG);
-  drawText(20, "AUJOURD'HUI", 2, C_CYAN, C_BG);
-  drawImage((LCD_W - skyIcon(forecast.sky).w) / 2, 62, skyIcon(forecast.sky));
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(14, "Aujourd'hui", hp_font_medium, t.accent);
+  drawBadge(MIDDLE, 122, 72, t.skyDisc, skyIcon(forecast.sky));
   char text[24];
-  snprintf(text, sizeof(text), "%d* / %d*", forecast.tmin, forecast.tmax);
-  drawText(204, text, textWidth(text, 3) <= LCD_W - 4 ? 3 : 2, C_WHITE, C_BG);
+  snprintf(text, sizeof(text), "%d° / %d°", forecast.tmin, forecast.tmax);
+  fit(208, text, t.text);
   clockText(text, sizeof(text), minute);
-  drawText(266, text, 3, C_GREY, C_BG);
+  line(258, text, hp_font_clock, t.muted);
 }
 
 hpui::Tap hpTapZone(hpui::Mode, bool, int, int) { return hpui::TAP_ELSEWHERE; }

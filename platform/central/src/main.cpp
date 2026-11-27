@@ -66,6 +66,7 @@ void drawScreen(){
   const String ip=apMode?WiFi.softAPIP().toString():WiFi.localIP().toString(),ssid=apMode?hpConfig.apSsid:WiFi.SSID();
   struct tm t={};const time_t now=time(nullptr);const bool timeKnown=now>1700000000;if(timeKnown)localtime_r(&now,&t);
   const int minute=timeKnown?t.tm_hour*60+t.tm_min:-1;
+  const bool night=hpIsNight(minute);hpSetNight(night);
   String next(static_cast<int>(mode));
   size_t index=0;hpui::Page page=hpui::PAGE_CLOCK;
   if(mode==hpui::IDLE&&timeKnown){
@@ -80,6 +81,7 @@ void drawScreen(){
   }
   else if(mode==hpui::PAIRING)next+=hpKey();
   else if(mode!=hpui::OFF)next+=ip+ssid+hpKey()+(sdOk?"s":"")+(journalOk?"j":"")+(apMode?"a":"");
+  next+=night?"/n":"/d";
   if(next==shown)return;
   const bool wasOff=shown.startsWith("0")||!shown.length();
   shown=next;
@@ -89,7 +91,9 @@ void drawScreen(){
   else if(mode==hpui::IDLE)hpScreenIdle(minute,t.tm_mday,t.tm_mon+1);
   else if(mode==hpui::PAIRING)hpScreenPairing(hpKey().c_str());
   else{HpStatus s;s.sd=sdOk;s.journal=journalOk;s.ap=apMode;s.ip=ip.c_str();s.wifi=ssid.c_str();s.host=hpConfig.hostname.c_str();s.key=hpKey().c_str();hpScreenInfo(s);}
-  if(wasOff)lcdBacklight(70);
+  const int light=hpTheme().backlight;static int lit=-1;
+  if(wasOff||light!=lit)lcdBacklight(light);
+  lit=light;
 }
 void sendJson(int code,JsonDocument& doc){String body;serializeJson(doc,body);hpCors(server);server.send(code,"application/json; charset=utf-8",body);}
 void sendError(int code,const char* msg){StaticJsonDocument<192>d;d["ok"]=false;d["error"]=msg;sendJson(code,d);}
@@ -115,12 +119,12 @@ void maintainWifi(){static uint32_t lostAt=0,lastRetry=0;uint32_t now=millis();i
 void handleButton(){bool down=digitalRead(HP_PIN_BUTTON)==LOW;if(down){if(!bootWasDown){bootWasDown=true;bootButtonAt=millis();}else if(millis()-bootButtonAt>=hpui::CLEAR_MS){Serial.println("[CFG] clearing Wi-Fi settings");hpConfigClear();hpConfigSave();delay(300);ESP.restart();}}else if(bootWasDown){bootWasDown=false;screen.release(millis()-bootButtonAt,millis());drawScreen();}}
 #if HP_HAS_TOUCH
 // Un toucher compte au relâchement ; un point marque l'endroit lu, pour vérifier la calibration.
-void handleTouch(){static uint32_t lastRead=0,lastDown=0;static bool down=false;static int x=0,y=0,rawA=0,rawB=0;if(millis()-lastRead<25)return;lastRead=millis();int nx,ny,na,nb;if(touchRead(nx,ny,na,nb)){down=true;lastDown=millis();x=nx;y=ny;rawA=na;rawB=nb;return;}if(!down||millis()-lastDown<80)return;down=false;const bool fault=apMode||!sdOk||!journalOk;const hpui::Mode mode=screen.mode(fault,millis());screen.tap(hpTapZone(mode,apMode,x,y),millis());Serial.printf("[TOUCH] x=%d y=%d raw=%d,%d\n",x,y,rawA,rawB);drawScreen();if(screen.mode(fault,millis())!=hpui::OFF)drawRect(x-3,y-3,7,7,C_CYAN);}
+void handleTouch(){static uint32_t lastRead=0,lastDown=0;static bool down=false;static int x=0,y=0,rawA=0,rawB=0;if(millis()-lastRead<25)return;lastRead=millis();int nx,ny,na,nb;if(touchRead(nx,ny,na,nb)){down=true;lastDown=millis();x=nx;y=ny;rawA=na;rawB=nb;return;}if(!down||millis()-lastDown<80)return;down=false;const bool fault=apMode||!sdOk||!journalOk;const hpui::Mode mode=screen.mode(fault,millis());screen.tap(hpTapZone(mode,apMode,x,y),millis());Serial.printf("[TOUCH] x=%d y=%d raw=%d,%d\n",x,y,rawA,rawB);drawScreen();if(screen.mode(fault,millis())!=hpui::OFF)drawRect(x-3,y-3,7,7,hpTheme().accent);}
 #endif
 }
 void hpPairingRequested(uint32_t client){screen.askPairing(client,millis());}
 void hpClientAuthorized(uint32_t client){screen.authorized(client);}
-void setup(){boardPower();Serial.begin(115200);uint32_t wait=millis();while(!Serial&&millis()-wait<1800)delay(10);Serial.println("\n=== HomePlanner " HP_FIRMWARE " : " HP_BOARD_NAME " ===");pinMode(HP_PIN_BUTTON,INPUT_PULLUP);if(!boardInit())Serial.println("[BOARD] LCD/SPI init failed");else hpScreenMessage("HOMEPLANNER",HP_FIRMWARE);hpConfigLoad();prefs.begin("homeplanner",false);otaToken=prefs.getString("ota","");prefs.end();hpScreenMessage("SD CARD","Mounting...");sdOk=sdMount();if(sdOk){struct stat st;if(stat(kJournalDir,&st)!=0&&mkdir(kJournalDir,0755)!=0)Serial.printf("[SD] mkdir failed: %d\n",errno);struct stat ds;if(stat(kJournalDir,&ds)==0&&S_ISDIR(ds.st_mode)){static home::SdJournalStore journalStore(kJournalDir);rotation=new home::RotatingJournal(journalStore);auto r=rotation->open();journalOk=r.ok;if(!r.ok)Serial.printf("[JOURNAL] recovery failed: %s\n",r.error.c_str());else{journal=rotation->journal();Serial.printf("[JOURNAL] gen %lu, %llu bytes, recovered seq %llu\n",(unsigned long)rotation->generation(),(unsigned long long)journal->bytes(),(unsigned long long)journal->core().lastSequence());}}}else Serial.println("[SD] unavailable; Wi-Fi diagnostics remain available");WiFi.persistent(false);WiFi.setSleep(false);WiFi.setHostname(hpConfig.hostname.c_str());WiFi.mode(WIFI_STA);hpKeyLoad();hpScreenMessage("WIFI","Connecting...");if(connectKnown()){startMdns();startHttp();drawScreen();}else startAp();Serial.println("[READY] s=status, compact, key, newkey, x=clear Wi-Fi, ota-token <secret>");}
+void setup(){boardPower();Serial.begin(115200);uint32_t wait=millis();while(!Serial&&millis()-wait<1800)delay(10);Serial.println("\n=== HomePlanner " HP_FIRMWARE " : " HP_BOARD_NAME " ===");pinMode(HP_PIN_BUTTON,INPUT_PULLUP);if(!boardInit())Serial.println("[BOARD] LCD/SPI init failed");else hpScreenMessage("Démarrage",HP_FIRMWARE);hpConfigLoad();prefs.begin("homeplanner",false);otaToken=prefs.getString("ota","");prefs.end();hpScreenMessage("Carte SD","Lecture...");sdOk=sdMount();if(sdOk){struct stat st;if(stat(kJournalDir,&st)!=0&&mkdir(kJournalDir,0755)!=0)Serial.printf("[SD] mkdir failed: %d\n",errno);struct stat ds;if(stat(kJournalDir,&ds)==0&&S_ISDIR(ds.st_mode)){static home::SdJournalStore journalStore(kJournalDir);rotation=new home::RotatingJournal(journalStore);auto r=rotation->open();journalOk=r.ok;if(!r.ok)Serial.printf("[JOURNAL] recovery failed: %s\n",r.error.c_str());else{journal=rotation->journal();Serial.printf("[JOURNAL] gen %lu, %llu bytes, recovered seq %llu\n",(unsigned long)rotation->generation(),(unsigned long long)journal->bytes(),(unsigned long long)journal->core().lastSequence());}}}else Serial.println("[SD] unavailable; Wi-Fi diagnostics remain available");WiFi.persistent(false);WiFi.setSleep(false);WiFi.setHostname(hpConfig.hostname.c_str());WiFi.mode(WIFI_STA);hpKeyLoad();hpScreenMessage("Wi-Fi","Connexion...");if(connectKnown()){startMdns();startHttp();drawScreen();}else startAp();Serial.println("[READY] s=status, compact, key, newkey, x=clear Wi-Fi, ota-token <secret>");}
 void loop(){if(apMode)dns.processNextRequest();if(httpStarted)server.handleClient();maintainJournal();handleButton();
 #if HP_HAS_TOUCH
 handleTouch();

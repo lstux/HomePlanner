@@ -5,6 +5,6 @@ cd "$(dirname "$0")/.."
 for board in boards/*/; do
   name="$(basename "$board")"
   g++ -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -I"$1" -Isrc -I"$board" \
-    tests/screen_tests.cpp src/screen.cpp src/screen_wide.cpp src/draw.cpp src/life.cpp src/hp_core_link.cpp -o "/tmp/screen_tests_$name"
+    tests/screen_tests.cpp src/screen.cpp src/screen_wide.cpp src/draw.cpp src/fonts.cpp src/life.cpp src/hp_core_link.cpp -o "/tmp/screen_tests_$name"
   if [ -n "${2:-}" ]; then mkdir -p "$2/$name"; "/tmp/screen_tests_$name" "$2/$name"; else "/tmp/screen_tests_$name"; fi
 done
