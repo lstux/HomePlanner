@@ -1,0 +1,32 @@
+{
+  "devices": [
+    {
+      "id": "c6", "name": "Centrale · Waveshare ESP32-C6", "manifest": "./c6/manifest.json",
+      "needs": "une carte Waveshare ESP32-C6-LCD-1.47, un câble USB-C de données et une carte microSD (FAT32) insérée.",
+      "steps": ["Branche la carte et ferme tout moniteur série.", "Clique sur le bouton, puis choisis le port USB.", "Mise à jour : laisse « Erase device » décochée pour garder Wi-Fi et code d'appairage."],
+      "tip": "Aucun port visible ? Débranche, maintiens le bouton BOOT, rebranche, puis relâche.",
+      "note": "Une seule centrale à la fois sur le réseau : elles répondent toutes au nom homeplanner.local."
+    },
+    {
+      "id": "thmi", "name": "Centrale · LilyGo T-HMI", "manifest": "./thmi/manifest.json",
+      "needs": "une LilyGo T-HMI, un câble USB-C de données et une carte microSD (FAT32) insérée.",
+      "steps": ["Branche la carte et ferme tout moniteur série.", "Clique sur le bouton, puis choisis le port USB.", "Mise à jour : laisse « Erase device » décochée pour garder Wi-Fi et code d'appairage."],
+      "tip": "Aucun port visible ? Débranche, maintiens le bouton BOOT, rebranche, puis relâche.",
+      "note": "Une seule centrale à la fois sur le réseau : elles répondent toutes au nom homeplanner.local."
+    },
+    {
+      "id": "watch-v1", "name": "Montre · T-Watch 2020 V1", "manifest": "./watch/t-watch2020-v1/manifest.json", "watch": true
+    },
+    {
+      "id": "watch-v2", "name": "Montre · T-Watch 2020 V2", "manifest": "./watch/t-watch2020-v2/manifest.json", "watch": true
+    },
+    {
+      "id": "watch-v3", "name": "Montre · T-Watch 2020 V3", "manifest": "./watch/t-watch2020-v3/manifest.json", "watch": true
+    }
+  ],
+  "watch": {
+    "needs": "une LilyGO T-Watch 2020 (prends la version que tu utilises pour Slovingo) et un câble USB de données.",
+    "backup": "Avant la première fois, sauvegarde la montre (cette page ne sait pas le faire) : pip install esptool, puis python -m esptool --port <PORT> --baud 921600 read_flash 0 0x1000000 sauvegarde-twatch.bin",
+    "steps": ["Branche la montre, allume-la et ferme tout moniteur série.", "Clique sur le bouton, puis choisis le port USB.", "Laisse « Erase device » décochée : sinon réglages et leçons de la montre sont effacés."]
+  }
+}

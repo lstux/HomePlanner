@@ -4,8 +4,8 @@ One common core (`src/`) and one folder per board (`boards/<board>/`):
 
 | Board (PlatformIO env) | Screen | Input | Web flasher |
 |---|---|---|---|
-| `waveshare-c6` — Waveshare ESP32-C6-LCD-1.47 | 172×320 portrait, SPI | BOOT button | `flash/` |
-| `lilygo-t-hmi` — LilyGo T-HMI (ESP32-S3) | 320×240 landscape, 8-bit parallel | touch + BOOT button | `flash/thmi/` |
+| `waveshare-c6` — Waveshare ESP32-C6-LCD-1.47 | 172×320 portrait, SPI | BOOT button | `flash/` (menu « Appareil ») |
+| `lilygo-t-hmi` — LilyGo T-HMI (ESP32-S3) | 320×240 landscape, 8-bit parallel | touch + BOOT button | `flash/` (menu « Appareil ») |
 
 Status: the C6 is in use; **the T-HMI build compiles but has never run on the board.**
 
@@ -29,7 +29,7 @@ Run **one central at a time** on the network: both answer to `homeplanner.local`
 
 ## Web flasher
 
-The Pages site serves `flash/` (C6) and `flash/thmi/` (T-HMI): install or update from Chrome/Edge on a computer, no PlatformIO needed (`tools/build_site.sh`). Leave "Erase device" unchecked when updating.
+The Pages site serves one flash page, `flash/`, with a device menu fed by `web/flash/devices.json` (add a line there and in `tools/build_site.sh` for a new board): install or update from Chrome/Edge on a computer, no PlatformIO needed (`tools/build_site.sh`). Leave "Erase device" unchecked when updating.
 
 ## First boot / Wi-Fi setup
 
@@ -70,7 +70,7 @@ The CORS allow-list accepts `https://lstux.github.io`, `https://homeplanner.lsli
 
 ## Partitions
 
-The T-HMI (16 MB) has two 6.25 MiB application slots. The C6 4 MB layout retains two 1.625 MiB OTA application slots, a 640 KiB LittleFS-compatible data partition, and a 64 KiB coredump. Firmware must fit in either app slot. The Waveshare sd-server README reports a roughly 1.50 MiB binary, leaving little margin in this layout. The partition table is intentionally unchanged for this iteration; use the CI build size before considering a new layout.
+The T-HMI (16 MB) has two 6.25 MiB application slots. The C6 4 MB layout has two 1.875 MiB OTA application slots and a 64 KiB coredump (the unused data partition was removed in 0.9.0, when the firmware outgrew the former 1.625 MiB slots). Firmware must fit in either slot: check the CI build size when adding features. Updating from an older layout works from the flash page without « Erase device » (Wi-Fi and key live in the NVS, which has not moved).
 
 ## Security / prototype limitations
 

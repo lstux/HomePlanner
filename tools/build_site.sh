@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble le site GitHub Pages dans _site/ : PWA + flashers web (centrale et montre).
+# Assemble le site GitHub Pages dans _site/ : PWA + page de flash unique (centrales et montre).
 # Prérequis : firmwares compilés (pio run dans platform/central) et npm.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -22,7 +22,7 @@ rm -rf "${tmp:?}"
 
 version="$(grep -o 'HP_FIRMWARE "[^"]*"' "$fw/src/version.h" | cut -d'"' -f2)"
 [ -n "$version" ] || { echo "version du firmware introuvable" >&2; exit 1; }
-# Un flasheur par carte. Parties séparées : une mise à jour sans effacement conserve la NVS (Wi-Fi, code).
+# Un dossier de fichiers par carte, choisi dans web/flash/devices.json. Parties séparées : une mise à jour sans effacement conserve la NVS (Wi-Fi, code).
 # Arguments : carte, dossier du site, nom, famille de puce, adresse du bootloader.
 central() {
   local build="$fw/.pio/build/$1" dir="_site/$2"
@@ -46,9 +46,10 @@ central() {
 }
 JSON
 }
-central waveshare-c6 flash "Home - centrale ESP32-C6" ESP32-C6 0
+central waveshare-c6 flash/c6 "Home - centrale ESP32-C6" ESP32-C6 0
 central lilygo-t-hmi flash/thmi "Home - centrale T-HMI" ESP32-S3 0
 # Montre : fichiers préparés par tools/watch_flash.py, un dossier par version.
+mkdir -p _site/flash/watch
 if [ -d _watch ]; then
   cp -r _watch/. _site/flash/watch/
 fi
