@@ -43,8 +43,20 @@ export function initAgenda(app) {
     return node;
   }
 
-  function monthView(people, events) {
-    const days = monthDays(monthStart(cursor)), first = days[0], last = days.at(-1), today = localDate(new Date());
+  // Téléphone tourné ou grand écran : deux ou trois mois côte à côte, comme au mur.
+  const wide = [matchMedia("(orientation: landscape) and (min-width: 640px)"), matchMedia("(orientation: landscape) and (min-width: 880px)")];
+  const monthCount = () => 1 + wide.filter((q) => q.matches).length;
+  function monthsView(people, events) {
+    const count = monthCount();
+    if (count === 1) return monthView(people, events, monthStart(cursor));
+    return el("div", { className: "months" }, ...Array.from({ length: count }, (_, i) => {
+      const first = addMonths(cursor, i);
+      return el("section", {}, el("h2", { textContent: format(first, { month: "long", year: "numeric" }) }), monthView(people, events, first));
+    }));
+  }
+
+  function monthView(people, events, start) {
+    const days = monthDays(start), first = days[0], last = days.at(-1), today = localDate(new Date());
     const list = occurrences(events, first, last), columns = lanes(list);
     const count = Math.max(0, ...[...columns.values()].map((n) => n + 1));
     return el("ol", { className: "month" }, ...days.map((date) => {
@@ -69,7 +81,7 @@ export function initAgenda(app) {
 
   function daysView(people, events, dates) {
     const list = occurrences(events, dates[0], dates.at(-1)), today = localDate(new Date());
-    return el("div", { className: "agenda-days" }, ...dates.map((date) => {
+    return el("div", { className: "agenda-days" + (dates.length > 1 ? " week" : "") }, ...dates.map((date) => {
       const here = onDay(list, date), holiday = holidayName(date);
       const block = el("section", { className: "agenda-day" + (date === today ? " today" : "") },
         el("h2", { textContent: dayName(date) + (holiday ? ` · ${holiday}` : "") }),
@@ -81,6 +93,10 @@ export function initAgenda(app) {
   }
 
   const title = () => {
+    if (mode === "month" && monthCount() > 1) {
+      const last = addMonths(cursor, monthCount() - 1);
+      return `${format(cursor, { month: "short", year: "numeric" })} – ${format(last, { month: "short", year: "numeric" })}`;
+    }
     if (mode === "month") return format(cursor, { month: "long", year: "numeric" });
     if (mode === "day") return format(cursor, { weekday: "short", day: "numeric", month: "long" });
     const a = weekStart(cursor), b = addDays(a, 6);
@@ -94,7 +110,7 @@ export function initAgenda(app) {
     const people = persons(app.config), events = allEvents(app.lists);
     $("agenda-title").textContent = title();
     for (const b of $("agenda-modes").children) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
-    const body = mode === "month" ? monthView(people, events)
+    const body = mode === "month" ? monthsView(people, events)
       : daysView(people, events, mode === "day" ? [cursor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(cursor), i)));
     $("agenda-body").replaceChildren(body);
     if (scrollToToday) { scrollToToday = false; $("agenda-body").querySelector(".today")?.scrollIntoView({ block: "center" }); }
@@ -149,7 +165,7 @@ export function initAgenda(app) {
     app.changed();
     close();
   };
-  for (const b of $("agenda-modes").children) b.onclick = () => { mode = b.dataset.mode; scrollToToday = mode === "month" && cursor === localDate(new Date()); render(); };
+  for (const b of $("agenda-modes").children) b.onclick = () => { mode = b.dataset.mode; scrollToToday = mode === "month" && cursor === localDate(new Date()); window.scrollTo(0, 0); render(); };
   const move = (n) => {
     cursor = mode === "month" ? addMonths(cursor, n) : addDays(cursor, mode === "week" ? 7 * n : n);
     if (mode === "month" && cursor.slice(0, 7) === localDate(new Date()).slice(0, 7)) cursor = localDate(new Date());
@@ -160,6 +176,7 @@ export function initAgenda(app) {
   $("agenda-today").onclick = () => { cursor = localDate(new Date()); scrollToToday = true; render(); };
   $("event-new").onclick = () => edit({ date: mode === "day" ? cursor : localDate(new Date()) });
   pruneEvents(app.lists, localDate(new Date()));
+  for (const query of wide) query.addEventListener("change", () => { if (!$("agenda").hidden) { scrollToToday = true; render(); } });
 
   return {
     render, line, edit,

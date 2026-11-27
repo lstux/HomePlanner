@@ -13,6 +13,7 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 - Routines matin / soir / vacances, proposées selon le jour et l'heure.
 - Étapes à cocher, compte à rebours, état (avance, juste, retard).
 - Page d'accueil entre deux routines (heure, mascotte du moment, événements des 48 prochaines heures, météo du jour et du lendemain, courses, prochaine routine ; rappel poubelle seulement de la veille 18 h au jour même 16 h, tant que ce n'est pas coché) ; la routine s'affiche d'elle-même d'une heure avant l'échéance, ou dès la première case cochée, à 15 min après.
+- Téléphone tourné (ou tablette) : onglets sur le côté, accueil et routine sur deux colonnes, agenda sur deux ou trois mois.
 - Agenda de la maison : vues mois (comme un calendrier mural), semaine et jour ; périodes, heure, « à confirmer », répétition annuelle ; une couleur par personne. Partagé par la centrale et compris dans la sauvegarde.
 - Réactions du renard et du lapin ; idées d'activités calmes (sans écran) s'il reste de la marge.
 - Plusieurs enfants, routines modifiables.
