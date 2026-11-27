@@ -1,5 +1,5 @@
-const CACHE = "homeplanner-pwa-v14";
-const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./sync.js",
+const CACHE = "homeplanner-pwa-v15";
+const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./routine.js", "./mascots.js", "./store.js", "./data.js", "./central.js", "./pairing.js", "./sync.js",
   "./dom.js", "./lists.js", "./lock.js", "./shopping.js", "./weather.js", "./map.js", "./geo.js", "./basemaps.js", "./bins.js", "./contacts.js", "./backup.js", "./dashboard.js", "./moments.js", "./events.js", "./agenda.js",
   "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
   "./manifest.webmanifest", "./icons/home-64.png", "./icons/home-192.png", "./icons/home-512.png", "./icons/home-maskable-512.png", "./mascots/duo-walk.webp",

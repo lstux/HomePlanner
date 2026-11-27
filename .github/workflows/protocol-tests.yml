@@ -6,12 +6,14 @@ on:
       - "protocol/**"
       - "platform/central/sd/**"
       - "platform/central/tests/**"
+      - "platform/central/src/pairing.h"
       - ".github/workflows/protocol-tests.yml"
   pull_request:
     paths:
       - "protocol/**"
       - "platform/central/sd/**"
       - "platform/central/tests/**"
+      - "platform/central/src/pairing.h"
       - ".github/workflows/protocol-tests.yml"
 
 jobs:
@@ -33,3 +35,8 @@ jobs:
             platform/central/tests/sd_journal_tests.cpp protocol/src/*.cpp platform/central/sd/sd_*.cpp \
             -o build/sd_journal_tests
           build/sd_journal_tests
+      - name: Pairing registry
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -Iplatform/central/src \
+            platform/central/tests/pairing_tests.cpp -o build/pairing_tests
+          build/pairing_tests

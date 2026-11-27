@@ -56,15 +56,21 @@ Missing or damaged SD/journal storage no longer prevents Wi-Fi setup, HTTP diagn
 ## API
 
 - `GET /api/v1/health` (public)
-- `POST /api/v1/pairing/show` (no key: shows the pairing key on the screen for 60 s, or until that client uses it)
-- `GET /api/v1/sync/snapshot` (pairing key)
-- `POST /api/v1/sync/push` (pairing key; 1 to 4 commands, entity types `config`, `progress` and `list` (ids `shopping`, `contacts`, `places`), payload string up to 12 KiB)
+- `POST /api/v1/pairing/request` (no token; opens a 60 s pairing window: screens show the household code, and a short press on BOOT approves)
+- `POST /api/v1/pairing/claim` (no token; `{"code","name"}` with the household code, or `{"request_id","name"}` after the button press, `202` until pressed; returns the device `token`. `403` wrong code, `429` after 5 wrong codes (5 min), `410` window expired, `409` 8 devices already paired)
+- `GET /api/v1/devices` (token) and `POST /api/v1/devices/revoke` `{"id"}` (token): list and remove paired devices (the app only shows them to adults)
+- `GET /api/v1/sync/snapshot` (device token)
+- `POST /api/v1/sync/push` (device token; 1 to 4 commands, entity types `config`, `progress` and `list` (ids `shopping`, `contacts`, `places`), payload string up to 12 KiB)
 - `POST /api/v1/ota` multipart field `firmware`, header `X-HomePlanner-OTA`
 - `GET /` or `/_cfg` setup portal (setup AP only)
 
-## Pairing key
+## Pairing
 
-An 8-character key is generated on first boot, stored in NVS and shown on the screen on request (pairing or information page). Clients send it in `X-HomePlanner-Key`. Serial commands: `key` prints it, `newkey` replaces it (every client must then be reconfigured). Clearing Wi-Fi settings keeps the key.
+Each device (phone, watch) gets its own 16-character token, kept in NVS (up to 8 devices) and sent in `X-HomePlanner-Key`. Removing a device from the app's settings cuts only its access. Two ways to get a token:
+- **Code**, on boards with a screen: an 8-character household code is generated on first boot and shown on the information page and the pairing screen; entering it in the app (or on the watch, which exchanges it for its own token on the first sync) pairs the device. Five wrong codes lock this for 5 minutes.
+- **Button**, on every board, including those without a screen: the app asks for a 60 s window, and a short press on the BOOT button approves it; the app then receives its token without typing anything.
+
+Serial commands: `key` prints the household code, `newkey` replaces it (paired devices keep working), `devices` counts paired devices, `unpair-all` removes them all (every device must pair again). Clearing Wi-Fi settings keeps the code and the devices. Upgrading from firmware before 0.10.0: every phone and the watch pair once again.
 
 The CORS allow-list accepts `https://lstux.github.io`, `https://homeplanner.lslinux.org` and localhost development origins.
 
@@ -75,7 +81,7 @@ The T-HMI (16 MB) has two 6.25 MiB application slots. The C6 4 MB layout has two
 ## Security / prototype limitations
 
 - Setup AP currently uses the shared prototype password `homeplan1`; do not use this firmware on an untrusted or shared radio environment.
-- The pairing key is a single household secret sent over plain HTTP: no members or roles. Keep the device on a trusted LAN; do not port-forward it.
+- Tokens travel over plain HTTP and the adults' list of devices is only hidden by the app, not enforced by the central. Keep the device on a trusted LAN; do not port-forward it.
 - Contacts (names, phone numbers, places) travel over plain HTTP and are stored unencrypted on the SD card.
 - The SD journal is compacted automatically (docs/persistence-journal.md); `/api/v1/health` reports `journal_bytes` and `journal_generation`. Not yet tried on the board. Do not go back to 0.4.0 once a compaction has happened.
 - HTTP is unencrypted; OTA token transport is not suitable outside a trusted LAN.

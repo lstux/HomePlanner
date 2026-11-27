@@ -70,8 +70,10 @@ void hpScreenPairing(const char* key) {
   drawFill(t.bg);
   line(8, "Appairage", hp_font_large, t.accent);
   drawBadge(80, 134, 77, t.mascotDisc, img_fox_content);
-  right(92, "Tape ce code :", t.text, hp_font_small);
-  right(126, key, t.accent);
+  right(84, "Tape ce code :", t.text, hp_font_small);
+  right(110, key, t.accent);
+  right(160, "ou appuie", t.muted, hp_font_small);
+  right(180, "sur BOOT", t.muted, hp_font_small);
 }
 
 void hpScreenIdle(int minute, int day, int month) {

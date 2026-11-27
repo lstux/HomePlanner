@@ -6,11 +6,16 @@
 
 #define HP_KEY_HEADER "X-HomePlanner-Key"
 
-// Loads the key from NVS, creating it if needed. Call once Wi-Fi is started so
+// Loads the household pairing code and the paired devices from NVS, creating it if needed. Call once Wi-Fi is started so
 // that esp_random() has an entropy source.
 void hpKeyLoad();
 void hpKeyRenew();
 const String& hpKey();
+// Bouton de la centrale : accepte la demande d'appairage en cours. Vrai si une fenêtre était ouverte.
+bool hpPairingButton();
+bool hpPairingOpen();
+size_t hpDeviceCount();
+void hpDevicesClear();
 
 // journal may point to nullptr when storage is unavailable.
 void hpApiRegister(WebServer& server, home::JournaledSyncCore*& journal);
