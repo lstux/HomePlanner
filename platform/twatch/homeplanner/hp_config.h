@@ -5,14 +5,14 @@
 
 #define HP_JSON_CONFIG_FILE "/homeplanner.json"
 #define HP_URL_LEN 96
-#define HP_KEY_LEN 12
+#define HP_KEY_LEN 20
 #define HP_MEMBER_LEN 24
 
 class hp_settings_t : public BaseJsonConfig {
     public:
     hp_settings_t();
     char url[ HP_URL_LEN ] = "";        /* address of the central, e.g. http://192.168.1.50 */
-    char key[ HP_KEY_LEN ] = "";        /* pairing key shown by the central */
+    char key[ HP_KEY_LEN ] = "";        /* code shown by the central, replaced after the first sync by this watch's own token */
     char member[ HP_MEMBER_LEN ] = "";  /* member wearing the watch, chosen on the watch */
 
     protected:

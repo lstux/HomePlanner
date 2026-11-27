@@ -2,6 +2,7 @@
 # Tests des écrans sur ordinateur, pour chaque carte. Usage : run_screen_tests.sh <dossier de ArduinoJson.h> [dossier d'images]
 set -euo pipefail
 cd "$(dirname "$0")/.."
+g++ -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -Isrc tests/pairing_tests.cpp -o /tmp/pairing_tests && /tmp/pairing_tests
 for board in boards/*/; do
   name="$(basename "$board")"
   g++ -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -I"$1" -Isrc -I"$board" \
