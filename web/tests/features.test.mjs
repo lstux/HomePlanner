@@ -90,13 +90,17 @@ test("poubelles : jours fériés, décalage et ajustements", () => {
   assert.equal(easterTuesday(true, { "reste.2027-03-30": { skip: true, t: 1 } }).skipped, true);
 });
 
-test("poubelles : rappel la veille et le matin", () => {
+test("poubelles : rappel de la veille au soir jusqu'à 16 h, tant que ce n'est pas coché", () => {
   const at = (d, h, o = {}) => reminder(DEFAULT_BINS, o, new Date(2026, 10, d, h));
-  assert.equal(at(24, 12), null);
+  assert.equal(at(24, 16), null);
+  assert.equal(at(25, 17), null);
   assert.equal(at(25, 18).when, "eve");
   assert.equal(at(25, 18).items[0].rule.id, "tri");
-  assert.equal(at(26, 7).when, "morning");
-  assert.equal(at(26, 7, { "tri.2026-11-26": { out: true, t: 1 } }), null);
-  assert.equal(at(26, 12), null);
+  assert.equal(at(26, 7).when, "day");
+  assert.equal(at(26, 15).when, "day");
+  assert.equal(at(26, 16), null);
+  const out = { "tri.2026-11-26": { out: true, t: 1 } };
+  assert.equal(at(25, 20, out), null);
+  assert.equal(at(26, 7, out), null);
   assert.equal(at(30, 20).items[0].rule.id, "reste");
 });

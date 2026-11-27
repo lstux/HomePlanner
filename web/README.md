@@ -12,7 +12,9 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 
 - Routines matin / soir / vacances, proposées selon le jour et l'heure.
 - Étapes à cocher, compte à rebours, état (avance, juste, retard).
-- Page d'accueil entre deux routines (heure, mascotte du moment, météo du jour et du lendemain, poubelles, courses, prochaine routine) ; la routine s'affiche d'elle-même d'une heure avant l'échéance, ou dès la première case cochée, à 15 min après.
+- Page d'accueil entre deux routines (heure, mascotte du moment, événements des 48 prochaines heures, météo du jour et du lendemain, courses, prochaine routine ; rappel poubelle seulement de la veille 18 h au jour même 16 h, tant que ce n'est pas coché) ; la routine s'affiche d'elle-même d'une heure avant l'échéance, ou dès la première case cochée, à 15 min après.
+- Téléphone tourné (ou tablette) : onglets sur le côté, accueil et routine sur deux colonnes, agenda sur deux ou trois mois.
+- Agenda de la maison : vues mois (comme un calendrier mural), semaine et jour ; périodes, heure, « à confirmer », répétition annuelle ; une couleur par personne. Partagé par la centrale et compris dans la sauvegarde.
 - Réactions du renard et du lapin ; idées d'activités calmes (sans écran) s'il reste de la marge.
 - Plusieurs enfants, routines modifiables.
 - Courses : liste partagée, cochable par tout le monde.
@@ -20,7 +22,7 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 - Soir : une étape peut avoir une heure fixe (« À table » à 19 h), décalable pour ce soir par un adulte ; la jauge vise cette heure puis l'heure de fin. Une étape « temps libre » (« Quartier libre ») dure ce qui reste avant le prochain repère.
 - Mode adulte : code facultatif devant les réglages, la remise à zéro, la ville, les lieux et les contacts (garde-fou contre les manipulations d'enfant, pas une sécurité). Un code par adulte ; code oublié, un autre adulte en redonne un, sinon effacement après 24 h (annulable).
 - Sauvegarde dans un fichier (⚙️) : réglages, routines et listes, sans les codes adultes ni le code d'appairage ; la restauration remplace les réglages et ramène les éléments du fichier.
-- Poubelles : tri un jeudi sur deux et reste chaque mardi (pré-rempli, réglable), rappel la veille et « C'est sorti » partagé ; jours fériés décalés d'un jour par défaut, chaque date ajustable (la règle réelle dépend de la commune). Rappel visible à l'ouverture de l'app, sans notification.
+- Poubelles : tri un jeudi sur deux et reste chaque mardi (pré-rempli, réglable), rappel de la veille au soir et « C'est sorti » partagé ; jours fériés décalés d'un jour par défaut, chaque date ajustable (la règle réelle dépend de la commune). Rappel visible à l'ouverture de l'app, sans notification.
 - Carte (Leaflet 1.9.4, fonds au choix : [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/), plan et photos IGN, OpenTopoMap ; connexion nécessaire) : maison, sorties, « où est mamie ? ». Lieux placés à la main ou par recherche d'adresse (Géoplateforme IGN, envoyée seulement sur demande), aucun suivi.
 - Contacts du foyer et des proches, avec bouton d'appel.
 - Fonctionne hors ligne après la première visite ; installable sur Android.

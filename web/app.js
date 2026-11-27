@@ -13,6 +13,8 @@ import { initContacts } from "./contacts.js";
 import { initBins } from "./bins.js";
 import { makeBackup, readBackup, restore, backupName, MAX_FILE } from "./backup.js";
 import { initDashboard } from "./dashboard.js";
+import { initAgenda } from "./agenda.js";
+import { persons, PALETTE, EVENT_LISTS } from "./events.js";
 import { activeMembers } from "./moments.js";
 import { $, el } from "./dom.js";
 
@@ -243,10 +245,27 @@ function addPin() {
   return true;
 }
 
+// Une personne : prénom, couleur parmi la palette, retrait.
+function personRow(p, color, onremove) {
+  const swatches = el("div", { className: "swatches" }, ...PALETTE.map((c, i) => {
+    const swatch = el("button", { type: "button", className: "swatch", ariaLabel: `Couleur ${i + 1}`, onclick: () => { p.color = c; renderSettings(); } });
+    swatch.style.background = c;
+    swatch.setAttribute("aria-pressed", String(c === color));
+    return swatch;
+  }));
+  return el("div", { className: "person" }, el("div", { className: "row" },
+    input("text", p.name, (v) => (p.name = v), { maxLength: 20, ariaLabel: "Prénom" }),
+    small("✕", onremove, "Retirer")), swatches);
+}
+function renderPeople() {
+  const colors = new Map(persons(draft).map((p) => [p.id, p.color]));
+  $("member-list").replaceChildren(...draft.members.map((m, i) => personRow(m, colors.get(m.id),
+    () => { if (draft.members.length > 1) { draft.members.splice(i, 1); renderSettings(); } })));
+  $("adult-list").replaceChildren(...(draft.adults || []).map((a, i) => personRow(a, colors.get(a.id),
+    () => { draft.adults.splice(i, 1); renderSettings(); })));
+}
 function renderSettings() {
-  $("member-list").replaceChildren(...draft.members.map((m, i) => el("div", { className: "row" },
-    input("text", m.name, (v) => (m.name = v), { maxLength: 20, ariaLabel: "Prénom" }),
-    small("✕", () => { if (draft.members.length > 1) { draft.members.splice(i, 1); renderSettings(); } }, "Retirer"))));
+  renderPeople();
   $("holidays").checked = draft.holidays;
   const open = new Set([...$("routine-list").querySelectorAll("details[open]")].map((d) => d.dataset.id));
   $("routine-list").replaceChildren(...draft.routines.map((r) => {
@@ -301,10 +320,12 @@ function renderSettings() {
   }));
 }
 
-const VIEWS = ["dashboard", "home", "shopping", "weather", "map-view", "contacts", "bins", "settings"];
+const VIEWS = ["dashboard", "agenda", "home", "shopping", "weather", "map-view", "contacts", "bins", "settings"];
 function show(name) {
   view = name;
   binsView?.close();
+  agendaView?.close();
+  if (name === "agenda") agendaView.open();
   for (const id of VIEWS) $(id).hidden = id !== name;
   for (const tab of document.querySelectorAll("[data-view]")) tab.setAttribute("aria-current", String(tab.dataset.view === name));
   $("tabs").hidden = name === "settings";
@@ -330,6 +351,7 @@ function renderView() {
   if (view === "dashboard") { renderDashboard(); weather.refresh(); }
   else if (view === "home") { render(); binsView.renderHome(); weather.render(); weather.refresh(); }
   else if (view === "bins") binsView.render();
+  else if (view === "agenda") agendaView.render();
   else if (view === "weather") { weather.render(); weather.refresh(); }
   else if (view === "shopping") renderShopping();
   else if (view === "map-view") renderMap();
@@ -355,7 +377,8 @@ const renderShopping = initShopping(shared);
 const renderMap = initMap(shared);
 const renderContacts = initContacts(shared);
 const binsView = initBins(shared);
-const renderDashboard = initDashboard(shared, { weather, bins: binsView, open: (name) => show(name) });
+const agendaView = initAgenda(shared);
+const renderDashboard = initDashboard(shared, { weather, bins: binsView, agenda: agendaView, open: (name) => show(name) });
 shared.weatherChanged = () => { if (view === "dashboard") renderDashboard(); };
 const central = initCentral({
   get config() { return config; },
@@ -380,15 +403,17 @@ $("pin-add").onclick = addPin;
 $("pin-cancel").onclick = () => { delete config.pinReset; meta.dirty = true; saveAll(); central.soon(); renderPinNotice(); };
 for (const tab of document.querySelectorAll("[data-view]")) tab.onclick = () => show(tab.dataset.view);
 $("weather-chip").onclick = () => show("weather");
-$("bins-chip").onclick = $("bins-dates").onclick = () => show("bins");
+$("bins-dates").onclick = () => show("bins");
 $("cancel-settings").onclick = () => { showMoment(); central.sync(); };
 $("add-member").onclick = () => { draft.members.push({ id: uid(), name: "" }); renderSettings(); };
+$("add-adult").onclick = () => { (draft.adults ||= []).push({ id: uid(), name: "" }); renderSettings(); };
 $("holidays").onchange = (e) => (draft.holidays = e.target.checked);
-$("reset-config").onclick = () => { if (confirm("Revenir aux routines par défaut ?")) { draft = { ...defaultConfig(), pins: draft.pins }; renderPins(); renderSettings(); } };
+$("reset-config").onclick = () => { if (confirm("Revenir aux routines par défaut ?")) { draft = { ...defaultConfig(), pins: draft.pins, adults: draft.adults }; renderPins(); renderSettings(); } };
 $("save-settings").onclick = () => {
   if ($("pin").value.trim() && !addPin()) return;
   if (!draft.pins?.length) { delete draft.pins; delete draft.pinReset; }
   draft.members.forEach((m, i) => (m.name = m.name.trim() || `Enfant ${i + 1}`));
+  draft.adults?.forEach((a, i) => (a.name = a.name.trim() || `Adulte ${i + 1}`));
   draft.routines.forEach((r) => r.steps.forEach((s) => (s.label = s.label.trim() || "Étape")));
   if (stable(draft) !== stable(config)) meta.dirty = true;
   saveMeta(meta);
@@ -413,7 +438,8 @@ $("backup-file").onchange = async (e) => {
   } catch (error) { alert(error.message); return; }
   const when = new Date(backup.date).toLocaleDateString("fr-FR", { dateStyle: "long" });
   const count = (n) => Object.keys(backup.lists[n]).length;
-  if (!confirm(`Restaurer la sauvegarde du ${when} ?\n${backup.config.routines.length} routines, ${count("contacts")} contact(s), ${count("places")} lieu(x), ${count("shopping")} article(s).\n\nLes réglages et routines actuels seront remplacés, sur tous les téléphones reliés. Les contacts, lieux et courses ajoutés depuis sont gardés.`)) return;
+  const events = EVENT_LISTS.reduce((total, n) => total + count(n), 0);
+  if (!confirm(`Restaurer la sauvegarde du ${when} ?\n${backup.config.routines.length} routines, ${count("contacts")} contact(s), ${count("places")} lieu(x), ${count("shopping")} article(s), ${events} événement(s).\n\nLes réglages et routines actuels seront remplacés, sur tous les téléphones reliés. Les événements, contacts, lieux et courses ajoutés depuis sont gardés.`)) return;
   showMoment();
   await central.sync(); // part de la dernière version de la maison, pour que la restauration l'emporte
   config = restore(config, lists, backup);

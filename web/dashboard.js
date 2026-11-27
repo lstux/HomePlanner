@@ -3,10 +3,13 @@ import { $, el } from "./dom.js";
 import { alive } from "./lists.js";
 import { describe, advice } from "./weather.js";
 import { greeting, nextRoutine } from "./moments.js";
+import { allEvents, persons, upcoming, localDate } from "./events.js";
+import { addDays } from "./bins.js";
+import { dayName } from "./agenda.js";
 
 const hour = (time) => time.replace(/^0/, "").replace(":", " h ");
 
-export function initDashboard(app, { weather, bins, open }) {
+export function initDashboard(app, { weather, bins, agenda, open }) {
   function render() {
     const now = new Date(), hello = greeting(app.config, now);
     $("dash-time").textContent = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -31,12 +34,16 @@ export function initDashboard(app, { weather, bins, open }) {
     if (due) {
       $("dash-bins-title").textContent = due.title;
       $("dash-bins-note").textContent = due.note;
-      $("dash-bins-out").hidden = !due.toggle;
-      if (due.toggle) {
-        $("dash-bins-out").textContent = due.done ? "Annuler" : "C'est sorti ✓";
-        $("dash-bins-out").onclick = () => { due.toggle(); render(); };
-      }
+      $("dash-bins-out").onclick = () => { due.toggle(); render(); };
     }
+
+    const today = localDate(now), people = persons(app.config);
+    const soon = upcoming(allEvents(app.lists), now);
+    const heading = (date) => (date === today ? "Aujourd'hui" : date === addDays(today, 1) ? "Demain" : dayName(date));
+    $("dash-agenda-list").replaceChildren(...soon.flatMap((day) => [
+      el("small", { className: "dash-date", textContent: heading(day.date) }),
+      ...day.items.map((o) => agenda.line(o, people, () => open("agenda")))]));
+    if (!soon.length) $("dash-agenda-list").replaceChildren(el("p", { className: "muted", textContent: "Rien de prévu." }));
 
     const items = alive(app.lists.shopping).filter((i) => !i.done).map((i) => i.name).sort((a, b) => a.localeCompare(b, "fr"));
     $("dash-shopping").hidden = !items.length;
@@ -50,6 +57,8 @@ export function initDashboard(app, { weather, bins, open }) {
   $("dash-weather").onclick = () => open("weather");
   $("dash-shopping").onclick = () => open("shopping");
   $("dash-routine").onclick = () => open("home");
-  $("dash-bins-dates").onclick = () => open("bins");
+  $("dash-bins-dates").onclick = $("dash-bins-link").onclick = () => open("bins");
+  $("dash-agenda-open").onclick = () => open("agenda");
+  $("dash-agenda-add").onclick = () => { open("agenda"); agenda.edit({ date: localDate(new Date()) }); };
   return render;
 }
