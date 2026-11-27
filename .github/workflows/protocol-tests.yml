@@ -4,16 +4,14 @@ on:
   push:
     paths:
       - "protocol/**"
-      - "platform/esp32c6/*.cpp"
-      - "platform/esp32c6/*.h"
-      - "platform/esp32c6/tests/**"
+      - "platform/central/sd/**"
+      - "platform/central/tests/**"
       - ".github/workflows/protocol-tests.yml"
   pull_request:
     paths:
       - "protocol/**"
-      - "platform/esp32c6/*.cpp"
-      - "platform/esp32c6/*.h"
-      - "platform/esp32c6/tests/**"
+      - "platform/central/sd/**"
+      - "platform/central/tests/**"
       - ".github/workflows/protocol-tests.yml"
 
 jobs:
@@ -31,7 +29,7 @@ jobs:
         run: |
           sudo mkdir -p /sd/hp-smoke && sudo chown -R "$USER" /sd
           g++ -std=gnu++11 -Wall -Wextra -g -fsanitize=address,undefined \
-            -Iplatform/esp32c6/tests/stubs -Iprotocol/include -Iplatform/esp32c6 \
-            platform/esp32c6/tests/sd_journal_tests.cpp protocol/src/*.cpp platform/esp32c6/sd_*.cpp \
+            -Iplatform/central/tests/stubs -Iprotocol/include -Iplatform/central/sd \
+            platform/central/tests/sd_journal_tests.cpp protocol/src/*.cpp platform/central/sd/sd_*.cpp \
             -o build/sd_journal_tests
           build/sd_journal_tests

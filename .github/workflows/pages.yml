@@ -3,9 +3,9 @@ name: Deploy PWA to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "platform/twatch/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "platform/twatch/**", "platform/central/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
   pull_request:
-    paths: ["web/**", "platform/twatch/**", "platform/esp32c6/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "platform/twatch/**", "platform/central/**", "protocol/**", "tools/build_site.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -61,10 +61,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: Build ESP32-C6 firmware
+      - name: Build central firmware (every board)
         run: |
           python -m pip install --upgrade platformio
-          pio run -d platform/esp32c6/test_firmware
+          pio run -d platform/central
       - name: Fetch the watch firmware
         uses: actions/download-artifact@v4
         with:

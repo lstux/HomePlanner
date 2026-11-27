@@ -1,0 +1,7 @@
+{
+  "name": "HomePlannerProtocol",
+  "version": "0.1.0",
+  "description": "Local wrapper around the portable HomePlanner sync core and microSD journal adapter",
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

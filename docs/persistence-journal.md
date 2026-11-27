@@ -88,7 +88,7 @@ The journal test adapter is an in-memory byte vector. It verifies:
 - Fail-closed behavior on a complete record with a bad checksum.
 - Idempotent retry after restart.
 
-`journal_rotation_tests` uses a simulated card and cuts the power at every mutating operation of a compaction and of the tidy-up at boot, with unflushed data lost, kept, torn or replaced by garbage; it also covers a full card, a bad read-back, an uncertain commit, automatic triggering and damaged files. `platform/esp32c6/tests` runs the SD adapter on real files with FreeRTOS stubbed.
+`journal_rotation_tests` uses a simulated card and cuts the power at every mutating operation of a compaction and of the tidy-up at boot, with unflushed data lost, kept, torn or replaced by garbage; it also covers a full card, a bad read-back, an uncertain commit, automatic triggering and damaged files. `platform/central/tests` runs the SD adapter on real files with FreeRTOS stubbed.
 
 Build and run:
 
@@ -98,7 +98,7 @@ Build and run:
 
 ## 6. SD/FatFs adapter requirements
 
-The ESP32 adapters (platform/esp32c6) still have to be tested against the actual Arduino/ESP-IDF filesystem behavior on the board.
+The ESP32 adapters (platform/central/sd) still have to be tested against the actual Arduino/ESP-IDF filesystem behavior on the board.
 
 At minimum it must:
 

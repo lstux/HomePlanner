@@ -1,0 +1,53 @@
+name: Central firmware (all boards)
+
+on:
+  push:
+    paths:
+      - "platform/central/**"
+      - "platform/twatch/homeplanner/hp_core.*"
+      - "protocol/**"
+      - ".github/workflows/central.yml"
+  pull_request:
+    paths:
+      - "platform/central/**"
+      - "platform/twatch/homeplanner/hp_core.*"
+      - "protocol/**"
+      - ".github/workflows/central.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Screen tests (host, every board)
+        run: |
+          mkdir -p /tmp/aj
+          curl -fsSL -o /tmp/aj/ArduinoJson.h https://github.com/bblanchon/ArduinoJson/releases/download/v6.21.5/ArduinoJson-v6.21.5.h
+          platform/central/tests/run_screen_tests.sh /tmp/aj
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [waveshare-c6, lilygo-t-hmi]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+      - name: Build firmware
+        run: pio run -d platform/central -e ${{ matrix.board }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: central-${{ matrix.board }}
+          path: |
+            platform/central/.pio/build/${{ matrix.board }}/firmware.bin
+            platform/central/.pio/build/${{ matrix.board }}/partitions.bin
+            platform/central/.pio/build/${{ matrix.board }}/bootloader.bin
