@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "home/sync_service.h"
+#include "pairing.h"
 
 namespace {
 
@@ -19,7 +20,8 @@ constexpr size_t kKeyLength = 8;
 
 WebServer* http = nullptr;
 home::JournaledSyncCore** store = nullptr;
-String key;
+String key;  // code d'appairage de la maison, affiché sur les écrans
+hpair::Registry registry;
 
 void sendJson(int code, const JsonDocument& doc) {
   String body;
@@ -42,13 +44,30 @@ String centralId() {
   return String(id);
 }
 
-// Checks the key and the storage; sends the error response itself.
+void saveDevices() {
+  Preferences prefs;
+  prefs.begin("homeplanner", false);
+  prefs.putString("devs", registry.dump().c_str());
+  prefs.end();
+}
+
+std::string randomText(size_t length) {
+  // Sans 0/O ni 1/I : les codes se lisent sur un petit écran.
+  static const char alphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  std::string out;
+  for (size_t i = 0; i < length; ++i) out += alphabet[esp_random() % 32];
+  return out;
+}
+
+// Checks the device token and the storage; sends the error response itself.
+const hpair::Device* authorized() {
+  const hpair::Device* device = registry.authorize(http->header(HP_KEY_HEADER).c_str(), millis());
+  if (!device) sendError(401, "pairing_key_required");
+  return device;
+}
+
 bool ready() {
-  if (!key.length() || http->header(HP_KEY_HEADER) != key) {
-    sendError(401, "pairing_key_required");
-    return false;
-  }
-  hpClientAuthorized(static_cast<uint32_t>(http->client().remoteIP()));
+  if (!authorized()) return false;
   if (!*store || !(*store)->healthy()) {
     sendError(503, "journal_unavailable");
     return false;
@@ -156,12 +175,94 @@ void handlePush() {
   sendJson(200, out);
 }
 
-// Sans clé : fait seulement apparaître le code sur l'écran de la centrale.
-void handlePairingShow() {
+// Sans jeton. Ouvre une fenêtre de 60 s : le code s'affiche sur les centrales avec écran, et un appui
+// sur le bouton de la centrale (écran ou non) accepte la demande.
+void handlePairingRequest() {
+  const std::string request = randomText(12);
+  registry.open(request, millis());
   hpPairingRequested(static_cast<uint32_t>(http->client().remoteIP()));
-  StaticJsonDocument<64> doc;
+  StaticJsonDocument<128> doc;
   doc["ok"] = true;
+  doc["request_id"] = request.c_str();
+  doc["window_s"] = hpair::WINDOW_MS / 1000;
   sendJson(200, doc);
+}
+
+// Sans jeton. Avec « code » : le code d'appairage de la maison ; avec « request_id » : la demande ci-dessus,
+// en attente de l'appui sur le bouton (réponse 202 tant qu'il n'a pas eu lieu).
+void handlePairingClaim() {
+  const String body = http->arg("plain");
+  StaticJsonDocument<384> in;
+  if (!body.length() || body.length() > 360 || deserializeJson(in, body)) {
+    sendError(400, "invalid_json");
+    return;
+  }
+  const std::string name = in["name"] | "";
+  const std::string code = in["code"] | "";
+  hpair::Device device;
+  hpair::Claim claim;
+  if (!code.empty()) claim = registry.claimCode(code, key.c_str(), name, millis(), randomText, device);
+  else claim = registry.claimButton(in["request_id"] | "", name, millis(), randomText, device);
+  switch (claim) {
+    case hpair::CLAIM_OK: {
+      saveDevices();
+      hpClientAuthorized(static_cast<uint32_t>(http->client().remoteIP()));
+      StaticJsonDocument<192> out;
+      out["ok"] = true;
+      out["token"] = device.token.c_str();
+      out["device_id"] = device.id.c_str();
+      sendJson(200, out);
+      return;
+    }
+    case hpair::CLAIM_WAITING: {
+      StaticJsonDocument<64> out;
+      out["ok"] = true;
+      out["status"] = "waiting";
+      sendJson(202, out);
+      return;
+    }
+    case hpair::CLAIM_EXPIRED: sendError(410, "pairing_expired"); return;
+    case hpair::CLAIM_LOCKED: sendError(429, "too_many_attempts"); return;
+    case hpair::CLAIM_FULL: sendError(409, "device_limit"); return;
+    default: sendError(403, "pairing_refused"); return;
+  }
+}
+
+// Appareils appairés ; l'application ne montre la liste qu'aux adultes.
+void handleDevices() {
+  const hpair::Device* self = authorized();
+  if (!self) return;
+  DynamicJsonDocument out(1536);
+  out["ok"] = true;
+  JsonArray list = out.createNestedArray("devices");
+  const uint32_t now = millis();
+  for (const hpair::Device& d : registry.devices()) {
+    JsonObject o = list.createNestedObject();
+    o["id"] = d.id.c_str();
+    o["name"] = d.name.c_str();
+    o["self"] = d.token == self->token;
+    if (d.seenKnown) o["seen_s_ago"] = (now - d.seen) / 1000;
+    else o["seen_s_ago"] = nullptr;
+  }
+  sendJson(200, out);
+}
+
+void handleRevoke() {
+  if (!authorized()) return;
+  StaticJsonDocument<128> in;
+  if (deserializeJson(in, http->arg("plain"))) {
+    sendError(400, "invalid_json");
+    return;
+  }
+  const std::string id = in["id"] | "";
+  if (!registry.revoke(id)) {
+    sendError(404, "unknown_device");
+    return;
+  }
+  saveDevices();
+  StaticJsonDocument<64> out;
+  out["ok"] = true;
+  sendJson(200, out);
 }
 
 void handleOptions() {
@@ -201,11 +302,19 @@ void hpKeyLoad() {
   Preferences prefs;
   prefs.begin("homeplanner", false);
   key = prefs.getString("key", "");
+  registry.load(prefs.getString("devs", "").c_str());
   prefs.end();
   if (key.length() != kKeyLength) hpKeyRenew();
 }
 
 const String& hpKey() { return key; }
+bool hpPairingButton() { return registry.approve(millis()); }
+bool hpPairingOpen() { return registry.windowOpen(millis()); }
+size_t hpDeviceCount() { return registry.devices().size(); }
+void hpDevicesClear() {
+  registry.clear();
+  saveDevices();
+}
 
 void hpApiRegister(WebServer& server, home::JournaledSyncCore*& journal) {
   http = &server;
@@ -214,6 +323,12 @@ void hpApiRegister(WebServer& server, home::JournaledSyncCore*& journal) {
   server.on("/api/v1/sync/snapshot", HTTP_OPTIONS, handleOptions);
   server.on("/api/v1/sync/push", HTTP_POST, handlePush);
   server.on("/api/v1/sync/push", HTTP_OPTIONS, handleOptions);
-  server.on("/api/v1/pairing/show", HTTP_POST, handlePairingShow);
-  server.on("/api/v1/pairing/show", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/pairing/request", HTTP_POST, handlePairingRequest);
+  server.on("/api/v1/pairing/request", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/pairing/claim", HTTP_POST, handlePairingClaim);
+  server.on("/api/v1/pairing/claim", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/devices", HTTP_GET, handleDevices);
+  server.on("/api/v1/devices", HTTP_OPTIONS, handleOptions);
+  server.on("/api/v1/devices/revoke", HTTP_POST, handleRevoke);
+  server.on("/api/v1/devices/revoke", HTTP_OPTIONS, handleOptions);
 }
