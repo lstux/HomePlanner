@@ -1,3 +1,4 @@
 ota-key.txt
 **/.pio
 _site/
+__pycache__/

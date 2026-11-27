@@ -15,11 +15,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 APP_DIR = os.path.join(ROOT, "platform", "twatch", "homeplanner")
 MASCOT_DIR = os.path.join(ROOT, "web", "mascots")
-TTF = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+TTF = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"  # bold reads better on the wrist
 
-RANGES = [(0x20, 0x7E), (0xA0, 0x17F)]
+TEXT = [(0x20, 0x7E), (0xA0, 0x17F)]
 BPP = 4
-SIZES = (16, 22)
+FONTS = {
+    16: TEXT,
+    22: TEXT + [(0x2713, 0x2713)],  # check mark
+    # the big countdown: digits and the few signs around them
+    48: [(0x20, 0x20), (0x27, 0x27), (0x2B, 0x2B), (0x30, 0x3A), (0x68, 0x68)],
+}
 
 
 def glyph_bitmap(font, ch):
@@ -49,13 +54,13 @@ def glyph_bitmap(font, ch):
     return bytes(out), w, h, x0, -y1, adv_w
 
 
-def write_font(size):
+def write_font(size, ranges):
     name = "hp_%dpx" % size
     font = ImageFont.truetype(TTF, size, layout_engine=ImageFont.Layout.BASIC)
     ascent, descent = font.getmetrics()
     bitmaps, descs = bytearray(), [(0, 0, 0, 0, 0, 0)]  # glyph id 0 is reserved
     cmaps, first_id = [], 1
-    for lo, hi in RANGES:
+    for lo, hi in ranges:
         cmaps.append((lo, hi - lo + 1, first_id))
         for cp in range(lo, hi + 1):
             data, w, h, ox, oy, adv = glyph_bitmap(font, chr(cp))
@@ -175,8 +180,10 @@ def icon(size):
 
 
 if __name__ == "__main__":
-    for s in SIZES:
-        write_font(s)
+    for size, ranges in FONTS.items():
+        write_font(size, ranges)
     write_image("hp_icon_64px", icon(64))
-    for who, mood in (("fox", "content"), ("fox", "bravo"), ("fox", "comfort"), ("rabbit", "content"), ("rabbit", "think")):
+    for who, mood in (("fox", "content"), ("fox", "comfort"), ("rabbit", "content"), ("rabbit", "think")):
         write_image("hp_%s_%s_64" % (who, mood), mascot(who, mood, 64))
+    for who in ("fox", "rabbit"):
+        write_image("hp_%s_bravo_96" % who, mascot(who, "bravo", 96))
