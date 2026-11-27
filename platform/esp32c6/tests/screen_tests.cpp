@@ -2,7 +2,9 @@
 // Avec un dossier en argument, écrit aussi chaque écran en image PPM.
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <string>
 
 #include "draw.h"
@@ -147,10 +149,28 @@ static void testLife() {
   }
 }
 
+// L'heure affichée, à partir de l'heure universelle donnée par le réseau.
+static void expectLocal(time_t utc, int day, int hour, int minute) {
+  struct tm t;
+  assert(localtime_r(&utc, &t));
+  assert(t.tm_mday == day && t.tm_hour == hour && t.tm_min == minute);
+}
+static void testTimezone() {
+  setenv("TZ", hpui::TZ_FRANCE, 1);
+  tzset();
+  expectLocal(1795760100, 27, 7, 15);   // 27/11/2026 06:15 UTC : hiver, +1 h
+  expectLocal(1782907200, 1, 14, 0);    // 01/07/2026 12:00 UTC : été, +2 h
+  expectLocal(1774745999, 29, 1, 59);   // juste avant le passage à l'heure d'été
+  expectLocal(1774746000, 29, 3, 0);
+  expectLocal(1792889999, 25, 2, 59);   // juste avant le retour à l'heure d'hiver
+  expectLocal(1792890000, 25, 2, 0);
+}
+
 int main(int argc, char** argv) {
   if (argc > 1) out = argv[1];
   testState();
   testLife();
+  testTimezone();
   assert(textWidth("ABC", 1) == 17 && textWidth("\xC3\x89t\xC3\xA9", 1) == 17);
   hpScreenIdle(19 * 60 + 5, 27, 11); save("veille-renard");
   hpScreenIdle(7 * 60 + 42, 28, 11); save("veille-lapin");
