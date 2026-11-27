@@ -12,7 +12,7 @@ Aperçu rendu sur ordinateur avec LVGL 7.11 (routine fictive).
 
 ## Installer depuis le navigateur
 
-Sur un ordinateur avec Chrome ou Edge : <https://lstux.github.io/HomePlanner/flash/watch/>. Faire la sauvegarde
+Sur un ordinateur avec Chrome ou Edge : <https://lstux.github.io/HomePlanner/flash/> (choisir « Montre »). Faire la sauvegarde
 ci-dessous avant la première fois, et laisser « Erase device » décochée.
 
 Le site compile l'app avec le fork `lstux/T-Watch-2020` ; après un changement dans le fork seul, relancer
