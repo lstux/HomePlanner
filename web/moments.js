@@ -1,5 +1,5 @@
 // Que montrer à ce moment de la journée ? Logique pure, testée avec Node.
-// Mêmes fenêtres que l'écran de la centrale (platform/esp32c6/.../life.cpp).
+// Mêmes fenêtres que l'écran de la centrale (platform/central/src/life.cpp).
 import { suggestRoutine, isDone } from "./routine.js";
 
 export const BEFORE_MIN = 60, AFTER_MIN = 15;

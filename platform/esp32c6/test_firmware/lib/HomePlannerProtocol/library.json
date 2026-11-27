@@ -1,7 +1,0 @@
-{
-  "name": "HomePlannerProtocol",
-  "version": "0.1.0",
-  "description": "Local wrapper around the portable HomePlanner sync core and ESP32-C6 SD adapter",
-  "frameworks": "arduino",
-  "platforms": "espressif32"
-}

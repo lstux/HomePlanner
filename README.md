@@ -31,9 +31,9 @@ The family routines (checklist, countdown, mascots) work offline on each device,
 - [Synchronization protocol](docs/synchronization-protocol.md)
 - [Portable synchronization core](docs/protocol-core.md)
 - [Append-only persistence journal](docs/persistence-journal.md)
-- [ESP32-C6 SD journal adapter](platform/esp32c6/README.md)
+- [microSD journal adapter](platform/central/sd/README.md)
 - [First autonomous prototype](docs/first-prototype.md)
-- [ESP32-C6 server firmware](platform/esp32c6/test_firmware/README.md)
+- [Central firmware (Waveshare ESP32-C6, LilyGo T-HMI)](platform/central/README.md)
 - [PWA source](web/)
 
 ## Hardware prototypes
