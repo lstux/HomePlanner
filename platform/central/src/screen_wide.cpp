@@ -6,49 +6,54 @@
 
 namespace {
 constexpr int RIGHT = LCD_W / 2, HALF = LCD_W / 2;
-constexpr int BUTTON_Y = 188, BUTTON_H = 48, BUTTON_W = 100, BUTTON_STEP = 105, BUTTON_X = 5;
-// En gros si ça tient dans la colonne, sinon en petit.
-void drawFitIn(int x, int w, int y, const char* text, uint16_t fg) {
-  drawTextIn(x, w, y, text, textWidth(text, 2) <= w - 4 ? 2 : 1, fg, C_BG);
-}
+constexpr int BUTTON_Y = 188, BUTTON_H = 46, BUTTON_W = 100, BUTTON_STEP = 105, BUTTON_X = 5;
+void line(int y, const char* text, const HpFont& font, uint16_t fg) { drawText(y, text, font, fg, hpTheme().bg); }
+void fit(int y, const char* text, uint16_t fg, const HpFont& largest = hp_font_large) { drawFitIn(0, LCD_W, y, text, fg, largest); }
+void right(int y, const char* text, uint16_t fg, const HpFont& largest = hp_font_large) { drawFitIn(RIGHT, HALF, y, text, fg, largest); }
+#if HP_HAS_TOUCH
 void button(int index, const char* label) {
+  const HpTheme& t = hpTheme();
   const int x = BUTTON_X + index * BUTTON_STEP;
-  drawRect(x, BUTTON_Y, BUTTON_W, BUTTON_H, C_DARK);
-  drawTextIn(x, BUTTON_W, BUTTON_Y + (BUTTON_H - 14) / 2, label, 2, C_WHITE, C_DARK);
+  drawRound(x, BUTTON_Y, BUTTON_W, BUTTON_H, 14, t.button, t.bg);
+  drawTextIn(x + 6, BUTTON_W - 12, BUTTON_Y + (BUTTON_H - hp_font_medium.height) / 2, label, hp_font_medium, t.text, t.button);
 }
+#endif
 }  // namespace
 
 void hpScreenMessage(const char* title, const char* detail) {
-  drawFill(C_BG);
-  drawText(40, "HOMEPLANNER", 3, C_CYAN, C_BG);
-  drawText(120, title, 2, C_WHITE, C_BG);
-  if (detail) drawText(150, detail, 1, C_YELLOW, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  drawBadge(80, 120, 78, t.mascotDisc, img_fox_content);
+  right(54, "HomePlanner", t.accent, hp_font_medium);
+  right(104, title, t.text, hp_font_medium);
+  if (detail) right(144, detail, t.muted, hp_font_small);
 }
 
 void hpScreenInfo(const HpStatus& s) {
-  drawFill(C_BG);
-  drawText(4, "HOMEPLANNER", 2, C_CYAN, C_BG);
-  drawText(28, s.ap ? "WI-FI A CONFIGURER" : "WI-FI CONNECTE", 1, s.ap ? C_YELLOW : C_GREEN, C_BG);
-  drawText(42, s.wifi, 1, C_WHITE, C_BG);
-  drawText(58, s.ip, 2, C_CYAN, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(2, "HomePlanner", hp_font_medium, t.accent);
+  line(30, s.ap ? "Wi-Fi à configurer" : "Wi-Fi connecté", hp_font_small, s.ap ? t.warn : t.good);
+  fit(49, s.wifi, t.text, hp_font_small);
+  fit(68, s.ip, t.text, hp_font_medium);
   if (!s.ap) {
     char address[40];
     snprintf(address, sizeof(address), "%s.local", s.host);
-    drawText(82, address, 1, C_CYAN, C_BG);
+    fit(93, address, t.muted, hp_font_small);
   }
-  drawTextIn(0, HALF, 100, s.sd ? "CARTE SD : OK" : "CARTE SD : ABSENTE", 1, s.sd ? C_GREEN : C_ORANGE, C_BG);
-  drawTextIn(RIGHT, HALF, 100, s.journal ? "JOURNAL : OK" : "JOURNAL : EN PANNE", 1, s.journal ? C_GREEN : C_ORANGE, C_BG);
+  drawTextIn(0, HALF, 114, s.sd ? "Carte SD : OK" : "Carte SD : absente", hp_font_small, s.sd ? t.good : t.late, t.bg);
+  drawTextIn(RIGHT, HALF, 114, s.journal ? "Journal : OK" : "Journal : en panne", hp_font_small, s.journal ? t.good : t.late, t.bg);
   if (s.ap) {
-    drawText(132, "REJOINS CE RESEAU,", 2, C_GREY, C_BG);
-    drawText(156, "PUIS 192.168.4.1", 2, C_YELLOW, C_BG);
+    line(146, "Rejoins ce réseau, puis ouvre", hp_font_small, t.muted);
+    fit(172, "192.168.4.1", t.accent);
     return;
   }
-  drawText(124, "CODE D'APPAIRAGE", 1, C_GREY, C_BG);
-  drawText(142, s.key, 4, C_YELLOW, C_BG);
+  line(134, "Code d'appairage", hp_font_small, t.muted);
+  fit(154, s.key, t.accent);
 #if HP_HAS_TOUCH
-  button(0, "CODE");
-  button(1, "ETEINDRE");
-  button(2, "RETOUR");
+  button(0, "Code");
+  button(1, "Éteindre");
+  button(2, "Retour");
 #endif
 }
 
@@ -61,58 +66,62 @@ hpui::Tap hpTapZone(hpui::Mode mode, bool ap, int x, int y) {
 }
 
 void hpScreenPairing(const char* key) {
-  drawFill(C_BG);
-  drawText(10, "APPAIRAGE", 3, C_CYAN, C_BG);
-  drawImage(5, 54, img_fox_content);
-  drawTextIn(RIGHT, HALF, 90, "TAPE CE CODE :", 1, C_WHITE, C_BG);
-  drawTextIn(RIGHT, HALF, 120, key, 3, C_YELLOW, C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(8, "Appairage", hp_font_large, t.accent);
+  drawBadge(80, 134, 77, t.mascotDisc, img_fox_content);
+  right(92, "Tape ce code :", t.text, hp_font_small);
+  right(126, key, t.accent);
 }
 
 void hpScreenIdle(int minute, int day, int month) {
-  drawFill(C_BG);
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
   // Le renard et le lapin se relaient chaque minute.
-  drawImage(5, 45, minute >= 0 && minute % 2 ? img_rabbit_content : img_fox_content);
+  drawBadge(80, 120, 78, t.mascotDisc, minute >= 0 && minute % 2 ? img_rabbit_content : img_fox_content);
   if (minute < 0) {
-    drawTextIn(RIGHT, HALF, 100, "HOME", 5, C_WHITE, C_BG);
+    right(102, "Home", t.text);
     return;
   }
   char text[16];
   clockText(text, sizeof(text), minute);
-  drawTextIn(RIGHT, HALF, 80, text, 5, C_WHITE, C_BG);
+  drawTextIn(RIGHT, HALF, 76, text, hp_font_clock, t.text, t.bg);
   snprintf(text, sizeof(text), "%02d/%02d", day, month);
-  drawTextIn(RIGHT, HALF, 140, text, 3, C_GREY, C_BG);
+  right(136, text, t.muted, hp_font_medium);
 }
 
 void hpScreenRoutine(int minute, const hpui::RoutineView& view) {
-  drawFill(C_BG);
-  drawFitIn(0, LCD_W, 6, view.name.c_str(), C_CYAN);
-  drawImage(5, 28, mascot(minute % 2, view.mood));
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  fit(2, view.name.c_str(), t.accent, hp_font_medium);
+  drawBadge(80, 104, 75, t.mascotDisc, mascot(minute % 2, view.mood));
   char text[16];
   clockText(text, sizeof(text), minute);
-  drawTextIn(RIGHT, HALF, 54, text, 5, C_WHITE, C_BG);
-  drawFitIn(RIGHT, HALF, 116, view.target.c_str(), C_GREY);
+  drawTextIn(RIGHT, HALF, 52, text, hp_font_clock, t.text, t.bg);
+  right(108, view.target.c_str(), t.muted, hp_font_small);
   clockText(text, sizeof(text), view.target_minute);
-  drawTextIn(RIGHT, HALF, 140, text, 3, C_GREY, C_BG);
+  right(132, text, t.muted);
   // Jauge : au milieu « pile poil », à droite l'avance, à gauche le retard (15 min au bord).
   const int percent = hp::gaugePercent(view.slack);
-  const uint16_t tone = view.done || view.slack >= 0 ? C_GREEN : view.slack > -5 * 60 ? C_YELLOW : C_ORANGE;
-  const std::string label = view.done ? "FINI" : view.passed ? "C'EST L'HEURE" : hpui::gaugeShort(view.slack);
-  drawText(184, label.c_str(), 3, tone, C_BG);
-  constexpr int left = 20, width = 280, middle = left + width / 2, y = 216;
-  drawRect(left, y, width, 14, C_DARK);
+  const uint16_t tone = view.done || view.slack >= 0 ? t.good : view.slack > -5 * 60 ? t.warn : t.late;
+  const std::string label = view.done ? "Fini !" : view.passed ? "C'est l'heure" : hpui::gaugeShort(view.slack);
+  fit(180, label.c_str(), tone);
+  constexpr int left = 20, width = 280, middle = left + width / 2, y = 219;
+  drawRound(left, y, width, 14, 7, t.track, t.bg);
   const int length = percent * (width / 2) / 100;
   drawRect(length < 0 ? middle + length : middle, y, length < 0 ? -length : length, 14, tone);
-  drawRect(middle - 1, y - 4, 3, 22, C_WHITE);
+  drawRect(middle - 1, y - 3, 3, 20, t.text);
 }
 
 void hpScreenWeather(int minute, const hpui::Forecast& forecast) {
-  drawFill(C_BG);
-  drawText(10, "AUJOURD'HUI", 2, C_CYAN, C_BG);
-  drawImage((HALF - skyIcon(forecast.sky).w) / 2, 60, skyIcon(forecast.sky));
+  const HpTheme& t = hpTheme();
+  drawFill(t.bg);
+  line(8, "Aujourd'hui", hp_font_medium, t.accent);
+  drawBadge(80, 134, 74, t.skyDisc, skyIcon(forecast.sky));
   char text[24];
-  snprintf(text, sizeof(text), "%d* / %d*", forecast.tmin, forecast.tmax);
-  drawTextIn(RIGHT, HALF, 80, text, textWidth(text, 3) <= HALF - 4 ? 3 : 2, C_WHITE, C_BG);
+  snprintf(text, sizeof(text), "%d° / %d°", forecast.tmin, forecast.tmax);
+  right(84, text, t.text);
   clockText(text, sizeof(text), minute);
-  drawTextIn(RIGHT, HALF, 140, text, 4, C_GREY, C_BG);
+  drawTextIn(RIGHT, HALF, 136, text, hp_font_clock, t.muted, t.bg);
 }
 #endif

@@ -74,7 +74,28 @@ static void testState() {
   t.tap(TAP_CODE, 73000);
   t.tap(TAP_ELSEWHERE, 74000);  // et ferme le code
   assert(t.mode(false, 74000) == IDLE);
+  // veille sans activité
+  ScreenState v;
+  assert(v.mode(false, SLEEP_MS - 1) == IDLE && v.mode(false, SLEEP_MS) == OFF);
+  assert(v.mode(false, SLEEP_MS + 1, true) == IDLE);  // routine : allumé
+  assert(v.mode(false, SLEEP_MS + 2) == OFF);         // finie : de nouveau en veille
+  assert(v.mode(true, SLEEP_MS + 3) == FAULT);        // panne : allumé
+  assert(v.mode(false, SLEEP_MS + 4) == OFF);
+  v.release(200, 2000000);  // l'appui rallume sans ouvrir les infos
+  assert(v.mode(false, 2000000) == IDLE && v.mode(false, 2000000 + SLEEP_MS) == OFF);
+  v.tap(TAP_ELSEWHERE, 4000000);  // le toucher aussi
+  assert(v.mode(false, 4000000) == IDLE);
+  v.activity(4600000);  // donnée reçue : le délai repart
+  assert(v.mode(false, 4000000 + SLEEP_MS) == IDLE && v.mode(false, 4600000 + SLEEP_MS) == OFF);
+  v.askPairing(3, 6000000);
+  assert(v.mode(false, 6000000) == PAIRING);
+  v.authorized(3);
+  assert(v.mode(false, 6000001) == IDLE);
+  v.release(HOLD_MS, 6000002);  // éteint à la main : une donnée ne rallume pas
+  v.activity(6000003);
+  assert(v.mode(false, 6000003, true) == OFF);
   // débordement de millis()
+  s.activity(0xFFFFFF00u);
   s.release(200, 0xFFFFFF00u);
   assert(s.mode(false, 100) == INFO);
 }
@@ -122,7 +143,7 @@ static void testLife() {
   now.ms -= 20 * 60000;
   assert(routineViews(config, progress, now).empty());
 
-  assert(gaugeShort(30) == "PILE POIL" && gaugeShort(300) == "+5 MIN" && gaugeShort(-3900) == "-1 H 05");
+  assert(gaugeShort(30) == "Pile poil" && gaugeShort(300) == "+5 min" && gaugeShort(-3900) == "-1 h 05");
   assert(skyOf(0) == SUN && skyOf(2) == PARTLY && skyOf(61) == RAIN && skyOf(75) == SNOW && skyOf(95) == STORM && skyOf(48) == FOG);
   double lat = 0, lon = 0;
   assert(weatherPlace(json, lat, lon) && lat > 48 && lon < 0);
@@ -185,10 +206,14 @@ int main(int argc, char** argv) {
   testState();
   testLife();
   testTimezone();
-  assert(textWidth("ABC", 1) == 17 && textWidth("\xC3\x89t\xC3\xA9", 1) == 17);
+  // Les accents ont leur dessin ; un caractère inconnu est ignoré.
+  assert(textWidth("\xC3\x89t\xC3\xA9", hp_font_medium) > 0);
+  assert(textWidth("a\xF0\x9F\x98\x80", hp_font_medium) == textWidth("a", hp_font_medium));
+  assert(textWidth("00:00", hp_font_clock) == textWidth("19:47", hp_font_clock) && textWidth("00:00", hp_font_clock) <= 160);
+  assert(!hpIsNight(-1) && hpIsNight(6 * 60 + 59) && !hpIsNight(7 * 60) && !hpIsNight(19 * 60 + 59) && hpIsNight(20 * 60));
   hpScreenIdle(19 * 60 + 5, 27, 11); save("veille-renard");
   hpScreenIdle(7 * 60 + 42, 28, 11); save("veille-lapin");
-  assert(frame[0][0] == C_BG && frame[40][12] == C_BG);
+  assert(frame[0][0] == hpTheme().bg);
   hpScreenIdle(-1, 0, 0); save("veille-sans-heure");
   HpStatus s;
   s.sd = s.journal = true; s.ip = "192.168.1.42"; s.wifi = "Maison"; s.host = "homeplanner"; s.key = "ABCD2345";
@@ -196,7 +221,16 @@ int main(int argc, char** argv) {
   s.ap = true; s.sd = false; s.ip = "192.168.4.1"; s.wifi = "HomePlanner-1A2B";
   hpScreenInfo(s); save("configuration");
   hpScreenPairing("ABCD2345"); save("appairage");
-  hpScreenMessage("WIFI", "Connexion..."); save("demarrage");
+  hpScreenMessage("Wi-Fi", "Connexion..."); save("demarrage");
+  hpSetNight(true);
+  hpScreenIdle(21 * 60 + 5, 27, 11); save("nuit-veille");
+  hpScreenPairing("ABCD2345"); save("nuit-appairage");
+  s.ap = false; s.sd = true; s.ip = "192.168.1.42"; s.wifi = "Maison";
+  hpScreenInfo(s); save("nuit-infos");
+  hpui::RoutineView v;
+  v.name = "Mia"; v.target = "Au lit"; v.target_minute = 20 * 60 + 30; v.slack = 6 * 60; v.mood = hpui::BRAVO;
+  hpScreenRoutine(20 * 60 + 12, v); save("nuit-routine");
+  hpSetNight(false);
 #if LCD_W > LCD_H
   assert(hpTapZone(hpui::INFO, false, 40, 210) == hpui::TAP_CODE);
   assert(hpTapZone(hpui::FAULT, false, 160, 235) == hpui::TAP_SCREEN_OFF);

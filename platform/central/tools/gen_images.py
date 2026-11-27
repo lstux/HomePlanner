@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Génère src/images.h : mascottes de la PWA pour l'écran de la centrale (palette + RLE).
 
-Usage : python3 tools/gen_images.py   (nécessite Pillow)
+Usage : python3 tools/gen_images.py   (nécessite Pillow et imagequant)
 """
 import math
 from pathlib import Path
+import imagequant
 from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 MASCOTS = HERE.parents[2] / "web" / "mascots"
 SIZE = 150
-BACKGROUND = (6, 8, 24)  # C_BG
 NAMES = [f"{who}-{mood}" for who in ("fox", "rabbit") for mood in ("bravo", "content", "think", "comfort")]
 SKIES = ["sun", "partly", "cloud", "fog", "rain", "snow", "storm"]
 ICON = 120
@@ -36,19 +36,18 @@ def array(values, width):
 
 
 def encode(name, picture):
-    flat = Image.new("RGBA", picture.size, BACKGROUND + (255,))
-    flat.alpha_composite(picture)
-    indexed = flat.convert("RGB").quantize(colors=128, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-    palette = indexed.getpalette()[:128 * 3]
-    colors = [rgb565(*palette[i:i + 3]) for i in range(0, len(palette), 3)]
-    # La couleur la plus proche du fond devient exactement le fond (pas de cadre visible).
-    corner = indexed.getpixel((0, 0))
-    colors[corner] = rgb565(*BACKGROUND)
+    """Palette de couleurs avec transparence : le fond (jour ou nuit) est ajouté à l'affichage."""
+    indexed = imagequant.quantize_pil_image(picture, dithering_level=0.0, max_colors=128)
+    raw = indexed.getpalette("RGBA")
+    entries = [tuple(raw[i:i + 4]) for i in range(0, len(raw), 4)]
+    colors = [f"0x{rgb565(r, g, b):04x}" for r, g, b, _ in entries]
+    alphas = [str(a) for _, _, _, a in entries]
     data = rle(indexed.tobytes())
     ident = name.replace("-", "_")
-    return (f"static const uint16_t {ident}_palette[] = {{\n{array([f'0x{c:04x}' for c in colors], 12)}}};\n"
+    return (f"static const uint16_t {ident}_palette[] = {{\n{array(colors, 12)}}};\n"
+            f"static const uint8_t {ident}_alpha[] = {{\n{array(alphas, 24)}}};\n"
             f"static const uint8_t {ident}_data[] = {{\n{array([str(b) for b in data], 24)}}};\n"
-            f"static const HpImage img_{ident} = {{{picture.width}, {picture.height}, {ident}_palette, {ident}_data, {len(data)}}};\n"), len(data)
+            f"static const HpImage img_{ident} = {{{picture.width}, {picture.height}, {ident}_palette, {ident}_alpha, {ident}_data, {len(data)}}};\n"), len(data)
 
 
 def weather_icon(kind):

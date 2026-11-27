@@ -65,11 +65,11 @@ std::vector<RoutineView> routineViews(const hp::Config& config, const std::map<s
 
 std::string gaugeShort(int slack_seconds) {
   const int minutes = abs(slack_seconds) / 60;
-  if (!minutes) return "PILE POIL";
+  if (!minutes) return "Pile poil";
   const char sign = slack_seconds > 0 ? '+' : '-';
   char text[24];
-  if (minutes < 60) snprintf(text, sizeof(text), "%c%d MIN", sign, minutes);
-  else snprintf(text, sizeof(text), "%c%d H %02d", sign, minutes / 60, minutes % 60);
+  if (minutes < 60) snprintf(text, sizeof(text), "%c%d min", sign, minutes);
+  else snprintf(text, sizeof(text), "%c%d h %02d", sign, minutes / 60, minutes % 60);
   return text;
 }
 
