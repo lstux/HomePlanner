@@ -12,6 +12,9 @@ namespace hpui {
 
 constexpr int BEFORE_MIN = 60, AFTER_MIN = 15;
 constexpr uint32_t MEMBER_MS = 10000, CLOCK_MS = 20000, WEATHER_MS = 5000;
+// Heure française, règle POSIX : été du dernier dimanche de mars au dernier dimanche
+// d'octobre (la « semaine 5 » veut dire la dernière).
+constexpr const char* TZ_FRANCE = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 enum Mood { BRAVO, CONTENT, THINK, COMFORT };
 
