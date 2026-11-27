@@ -64,13 +64,14 @@ export function collections(bins, overrides, today, days = 70) {
 const pad = (n) => String(n).padStart(2, "0");
 const localDate = (now) => `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-// Rappel : le matin du ramassage (jusqu'à 10 h, si rien n'est coché), sinon toute la veille.
+// Rappel : la veille à partir de 18 h, puis le jour même jusqu'à 16 h. Une fois coché, il disparaît.
+export const EVE_FROM = 18, DAY_UNTIL = 16;
 export function reminder(bins, overrides, now) {
-  const today = localDate(now);
-  const all = collections(bins, overrides, today, 8).filter((c) => !c.skipped);
-  const morning = now.getHours() < 10 ? all.filter((c) => c.date === today && !c.out) : [];
-  if (morning.length) return { when: "morning", items: morning };
-  const eve = all.filter((c) => c.date === addDays(today, 1));
+  const today = localDate(now), hour = now.getHours();
+  const todo = collections(bins, overrides, today, 8).filter((c) => !c.skipped && !c.out);
+  const current = hour < DAY_UNTIL ? todo.filter((c) => c.date === today) : [];
+  if (current.length) return { when: "day", items: current };
+  const eve = hour >= EVE_FROM ? todo.filter((c) => c.date === addDays(today, 1)) : [];
   return eve.length ? { when: "eve", items: eve } : null;
 }
 
@@ -81,41 +82,26 @@ export function initBins(app) {
   const overrides = () => app.lists.bins;
   function save(key, fields) { upsert(overrides(), key, fields); app.changed(); render(); renderHome(); }
 
-  function renderHome() {
-    const now = new Date(), bins = binsConfig(app.config);
-    const due = reminder(bins, overrides(), now);
-    const next = collections(bins, overrides(), localDate(now)).find((c) => !c.skipped);
-    $("bins-reminder").hidden = !due;
-    $("bins-chip").hidden = !!due || !next;
-    if (next) $("bins-chip").textContent = `${next.rule.icon} Prochaine poubelle : ${next.rule.name}, ${frenchDate(next.date)}`;
-    if (!due) return;
-    const names = due.items.map((c) => `${c.rule.icon} ${c.rule.name}`).join(" et ");
-    const done = due.items.every((c) => c.out);
-    $("bins-reminder").dataset.done = String(done);
-    $("bins-title").textContent = done ? `✓ C'est sorti : ${names}`
-      : due.when === "morning" ? `Ramassage ce matin : ${names} !` : `Ce soir, on sort : ${names}`;
-    const unsure = due.items.find((c) => c.holiday && !c.moved);
-    $("bins-note").textContent = unsure ? `Semaine avec jour férié (${unsure.holiday}) : date à vérifier.`
-      : due.when === "eve" ? `Ramassage demain, ${frenchDate(due.items[0].date)}.` : "";
-    $("bins-out").textContent = done ? "Annuler" : "C'est sorti ✓";
-    $("bins-out").className = done ? "button secondary" : "button";
-    $("bins-out").onclick = () => { for (const c of due.items) upsert(overrides(), c.key, { out: !done }); app.changed(); renderHome(); };
-  }
-
-  // Pour l'accueil : rappel en cours, ou ramassage des deux prochains jours.
+  // Rappel en cours, pour l'accueil et l'écran des routines ; null s'il n'y a rien à faire.
   function status() {
-    const now = new Date(), bins = binsConfig(app.config), today = localDate(now);
-    const names = (items) => items.map((c) => `${c.rule.icon} ${c.rule.name}`).join(" et ");
-    const due = reminder(bins, overrides(), now);
-    if (due) {
-      const done = due.items.every((c) => c.out);
-      return { done, title: done ? `✓ C'est sorti : ${names(due.items)}` : due.when === "morning" ? `Ramassage ce matin : ${names(due.items)} !` : `Ce soir, on sort : ${names(due.items)}`,
-        note: due.when === "eve" ? `Ramassage demain, ${frenchDate(due.items[0].date)}.` : "",
-        toggle: () => { for (const c of due.items) upsert(overrides(), c.key, { out: !done }); app.changed(); renderHome(); } };
-    }
-    const next = collections(bins, overrides(), today).find((c) => !c.skipped && !(c.date === today && now.getHours() >= 10));
-    if (!next) return null;
-    return { done: false, toggle: null, title: `Prochaine poubelle : ${next.rule.icon} ${next.rule.name}`, note: frenchDate(next.date) };
+    const due = reminder(binsConfig(app.config), overrides(), new Date());
+    if (!due) return null;
+    const names = due.items.map((c) => `${c.rule.icon} ${c.rule.name}`).join(" et ");
+    const unsure = due.items.find((c) => c.holiday && !c.moved);
+    return {
+      title: due.when === "day" ? `Ramassage aujourd'hui : ${names} !` : `Ce soir, on sort : ${names}`,
+      note: unsure ? `Semaine avec jour férié (${unsure.holiday}) : date à vérifier.`
+        : due.when === "eve" ? `Ramassage demain, ${frenchDate(due.items[0].date)}.` : "",
+      toggle: () => { for (const c of due.items) upsert(overrides(), c.key, { out: true }); app.changed(); renderHome(); },
+    };
+  }
+  function renderHome() {
+    const due = status();
+    $("bins-reminder").hidden = !due;
+    if (!due) return;
+    $("bins-title").textContent = due.title;
+    $("bins-note").textContent = due.note;
+    $("bins-out").onclick = due.toggle;
   }
 
   function editor(c) {
@@ -125,7 +111,8 @@ export function initBins(app) {
         button("Déplacer", "button", () => { if (!date.value) return; editing = ""; save(c.key, { move: date.value, skip: false }); })),
       el("div", { className: "row" },
         button(c.skipped ? "Rétablir le ramassage" : "Pas de ramassage", "button secondary", () => { editing = ""; save(c.key, { skip: !c.skipped }); }),
-        button("Date calculée", "button secondary", () => { editing = ""; save(c.key, { move: "", skip: false }); })));
+        button("Date calculée", "button secondary", () => { editing = ""; save(c.key, { move: "", skip: false }); }),
+        c.out ? button("Finalement pas sortie", "button secondary", () => { editing = ""; save(c.key, { out: false }); }) : null));
   }
 
   function renderRules() {

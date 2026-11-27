@@ -1,6 +1,7 @@
 // Collections partagées (courses, contacts, lieux). Logique pure, testée avec Node.
 // Chaque élément porte t (dernière modification) ; x = 1 marque une suppression.
-export const LISTS = ["shopping", "contacts", "places", "bins"];
+// events0 à events7 : l'agenda, réparti pour respecter la taille maximale d'une liste.
+export const LISTS = ["shopping", "contacts", "places", "bins", ...Array.from({ length: 8 }, (_, i) => `events${i}`)];
 export const KEEP_DELETED_MS = 30 * 24 * 3600 * 1000;
 
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

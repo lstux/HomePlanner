@@ -25,13 +25,48 @@
       <p id="dash-speech" class="speech"></p>
       <img id="dash-mascot" class="mascot" alt="" width="180" height="180">
     </section>
-    <button id="dash-weather" class="dash-card" type="button"><span id="dash-weather-days" class="dash-days"></span><span id="dash-weather-tip"></span></button>
-    <section id="dash-bins" class="dash-card" hidden>
+    <section id="dash-bins" class="dash-card dash-alert" hidden>
       <strong id="dash-bins-title"></strong><small id="dash-bins-note"></small>
-      <div class="row"><button id="dash-bins-out" class="button" type="button"></button><button id="dash-bins-dates" class="button secondary" type="button">Les dates</button></div>
+      <div class="row"><button id="dash-bins-out" class="button" type="button">C'est sorti ✓</button><button id="dash-bins-dates" class="button secondary" type="button">Les dates</button></div>
     </section>
+    <section id="dash-agenda" class="dash-card">
+      <button id="dash-agenda-open" class="card-title" type="button">📅 Les 48 prochaines heures</button>
+      <div id="dash-agenda-list"></div>
+      <button id="dash-agenda-add" class="button secondary" type="button">+ Événement</button>
+    </section>
+    <button id="dash-weather" class="dash-card" type="button"><span id="dash-weather-days" class="dash-days"></span><span id="dash-weather-tip"></span></button>
     <button id="dash-shopping" class="dash-card" type="button" hidden><strong>🛒 Courses</strong><span id="dash-shopping-text"></span></button>
     <button id="dash-routine" class="dash-card" type="button" hidden><strong>✅ Prochaine routine</strong><span id="dash-routine-text"></span></button>
+    <button id="dash-bins-link" class="link" type="button">🗑️ Poubelles : dates et réglages</button>
+  </main>
+
+  <main id="agenda" hidden>
+    <div id="agenda-browse">
+      <div class="agenda-head">
+        <div id="agenda-modes" class="segmented" role="group" aria-label="Affichage">
+          <button type="button" data-mode="month">Mois</button><button type="button" data-mode="week">Semaine</button><button type="button" data-mode="day">Jour</button>
+        </div>
+        <div class="agenda-nav">
+          <button id="agenda-prev" class="mini" type="button" aria-label="Précédent">‹</button>
+          <strong id="agenda-title"></strong>
+          <button id="agenda-next" class="mini" type="button" aria-label="Suivant">›</button>
+          <button id="agenda-today" class="mini" type="button">Auj.</button>
+        </div>
+      </div>
+      <div id="agenda-body"></div>
+      <button id="event-new" class="button fab" type="button">+ Événement</button>
+    </div>
+    <form id="agenda-form" class="panel" hidden novalidate>
+      <h2 id="event-heading"></h2>
+      <label class="field"><span>Quoi ?</span><input id="event-title" type="text" maxlength="60" autocomplete="off"></label>
+      <label class="field"><span>Quand ?</span><input id="event-date" type="date"></label>
+      <label class="field"><span>Jusqu'au (vacances, séjour…), facultatif</span><input id="event-end" type="date"></label>
+      <label class="field"><span>Heure, facultatif</span><input id="event-time" type="time"></label>
+      <div class="field"><span>Qui ? (aucun nom coché : toute la famille)</span><div id="event-who" class="chips"></div></div>
+      <label class="inline"><input id="event-maybe" type="checkbox">À confirmer</label>
+      <label class="inline"><input id="event-yearly" type="checkbox">Revient chaque année (anniversaire…)</label>
+      <div class="row form-actions"><button class="button">Enregistrer</button><button id="event-cancel" class="button secondary" type="button">Annuler</button><button id="event-delete" class="button danger" type="button">Supprimer</button></div>
+    </form>
   </main>
 
   <main id="home" hidden>
@@ -39,9 +74,8 @@
     <section id="bins-reminder" class="bins-reminder" hidden>
       <img src="./mascots/rabbit-think.webp" alt="" width="64" height="64">
       <div><strong id="bins-title"></strong><small id="bins-note"></small>
-        <div class="row"><button id="bins-out" class="button" type="button"></button><button id="bins-dates" class="button secondary" type="button">Les dates</button></div></div>
+        <div class="row"><button id="bins-out" class="button" type="button">C'est sorti ✓</button><button id="bins-dates" class="button secondary" type="button">Les dates</button></div></div>
     </section>
-    <button id="bins-chip" class="weather-chip bins-chip" type="button" hidden></button>
     <nav id="members" class="chips" aria-label="Qui es-tu ?"></nav>
     <select id="routine-select" aria-label="Routine"></select>
 
@@ -166,6 +200,10 @@
       <h2>La famille</h2>
       <div id="member-list"></div>
       <button id="add-member" class="button secondary" type="button">+ Ajouter un enfant</button>
+      <h3>Les adultes</h3>
+      <p class="muted">Pour l'agenda : pas de routine. La couleur choisie sert de fond aux événements.</p>
+      <div id="adult-list"></div>
+      <button id="add-adult" class="button secondary" type="button">+ Ajouter un adulte</button>
     </section>
     <section class="panel">
       <h2>Routines</h2>
@@ -184,7 +222,7 @@
     </section>
     <section class="panel">
       <h2>Sauvegarde</h2>
-      <p class="muted">Un fichier avec les réglages, routines, contacts, lieux, courses et poubelles. Les contacts y sont lisibles par n'importe qui : garde-le pour toi. Les codes adultes et les cases du jour n'y sont pas.</p>
+      <p class="muted">Un fichier avec les réglages, routines, agenda, contacts, lieux, courses et poubelles. Les contacts y sont lisibles par n'importe qui : garde-le pour toi. Les codes adultes et les cases du jour n'y sont pas.</p>
       <div class="row"><button id="backup-export" class="button secondary" type="button">Exporter</button><button id="backup-import" class="button secondary" type="button">Importer…</button></div>
       <input id="backup-file" type="file" accept=".json,application/json" hidden>
     </section>
@@ -204,6 +242,7 @@
   </main>
   <nav id="tabs" class="tabs" aria-label="Rubriques">
     <button type="button" data-view="dashboard"><span>🏠</span>Accueil</button>
+    <button type="button" data-view="agenda"><span>📅</span>Agenda</button>
     <button type="button" data-view="home"><span>✅</span>Routine</button>
     <button type="button" data-view="shopping"><span>🛒</span>Courses</button>
     <button type="button" data-view="weather"><span>🌤️</span>Météo</button>
