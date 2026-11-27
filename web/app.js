@@ -397,7 +397,7 @@ $("open-settings").onclick = () => {
   draft = structuredClone(config);
   if (pinsOf(draft).length) draft.pins = pinsOf(draft);
   delete draft.pin;
-  $("pin").value = ""; $("pin-name").value = ""; renderPins(); renderSettings(); show("settings");
+  $("pin").value = ""; $("pin-name").value = ""; renderPins(); renderSettings(); show("settings"); central.devices();
 };
 $("pin-add").onclick = addPin;
 $("pin-cancel").onclick = () => { delete config.pinReset; meta.dirty = true; saveAll(); central.soon(); renderPinNotice(); };

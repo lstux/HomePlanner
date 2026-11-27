@@ -86,7 +86,7 @@ static char hp_status[ 64 ] = "";
 
 /* one synchronization at a time, in its own task */
 struct hp_job_t {
-    std::string url, key, member;
+    std::string url, key, member, token;  /* token: received when the code was exchanged */
     hp::Progress progress;
     hp::SyncResult result;
 };
@@ -219,8 +219,25 @@ static void hp_worker( void *arg ) {
             vTaskDelay( 250 / portTICK_PERIOD_MS );
     }
     if ( WiFi.isConnected() ) {
-        hp_http_t http( job->url, job->key );
-        job->result = hp::synchronize( http, job->member, job->progress, esp_random() );
+        hp_http_t first( job->url, job->key );
+        bool paired = true;
+        if ( job->key.size() == 8 ) {
+            /* a code from the central's screen: exchange it for this watch's own token (the central can then remove it) */
+            std::string answer;
+            const std::string body = "{\"code\":\"" + job->key + "\",\"name\":\"Montre\"}";
+            const int status = first.post( "/api/v1/pairing/claim", body, answer );
+            const size_t at = answer.find( "\"token\":\"" );
+            if ( status == 200 && at != std::string::npos )
+                job->token = answer.substr( at + 9, answer.find( '"', at + 9 ) - at - 9 );
+            else {
+                paired = false;
+                job->result.status = status > 0 ? hp::SYNC_BAD_KEY : hp::SYNC_UNREACHABLE;
+            }
+        }
+        if ( paired ) {
+            hp_http_t http( job->url, job->token.empty() ? job->key : job->token );
+            job->result = hp::synchronize( http, job->member, job->progress, esp_random() );
+        }
     }
     hp_job_done = true;
     vTaskDelete( NULL );
@@ -267,6 +284,11 @@ static void hp_start_sync( void ) {
 static void hp_finish_sync( void ) {
     hp::SyncResult &r = hp_job->result;
 
+    if ( !hp_job->token.empty() && hp_job->token.size() < sizeof( hp_settings.key ) ) {
+        snprintf( hp_settings.key, sizeof( hp_settings.key ), "%s", hp_job->token.c_str() );
+        hp_settings.save();
+    }
+
     if ( !r.config_json.empty() && r.config_json != hp_config_json && hp::parseConfig( r.config_json.c_str(), hp_config ) ) {
         hp_config_json = r.config_json;
         hp_write_file( HP_CONFIG_CACHE, hp_config_json );
@@ -282,7 +304,7 @@ static void hp_finish_sync( void ) {
     switch ( r.status ) {
         case hp::SYNC_OK:           hp_set_status( "A jour avec la maison" ); break;
         case hp::SYNC_PENDING:      hp_set_status( "Synchronisation..." ); hp_sync_at = lv_tick_get() + HP_SYNC_DELAY_MS; break;
-        case hp::SYNC_BAD_KEY:      hp_set_status( "Code d'appairage refus\xC3\xA9" ); break;
+        case hp::SYNC_BAD_KEY:      hp_set_status( "Retape le code d'appairage" ); break;
         case hp::SYNC_NO_CONFIG:    hp_set_status( "Ouvre d'abord Home sur un t\xC3\xA9l\xC3\xA9phone" ); break;
         case hp::SYNC_BAD_ANSWER:   hp_set_status( "R\xC3\xA9ponse illisible" ); break;
         default:                    hp_set_status( "Maison injoignable" ); break;

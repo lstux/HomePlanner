@@ -1,12 +1,15 @@
-// Liaison avec la centrale C6 : adresse, code d'appairage et planification de la synchro.
+// Liaison avec la centrale : adresse, appairage (code ou bouton), appareils connectés et planification de la synchro.
 import { syncOnce } from "./sync.js";
+import { pair, seenText } from "./pairing.js";
 
 const $ = (id) => document.getElementById(id);
 const read = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 const keep = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 let server = read("home.server");
+// Jeton propre à cet appareil, remis par la centrale à l'appairage.
 let key = read("home.key");
+let deviceName = read("home.deviceName") || "Téléphone";
 
 async function request(path, body) {
   const url = new URL(server + path);
@@ -18,8 +21,8 @@ async function request(path, body) {
   try {
     response = await fetch(url, { ...lan, headers, method: body ? "POST" : "GET", body: body && JSON.stringify(body), signal: AbortSignal.timeout(15000) });
   } catch { throw new Error("Centrale injoignable"); }
-  if (response.status === 401) throw new Error("Code d'appairage refusé");
-  if (response.status === 404) throw new Error("Firmware de la centrale à mettre à jour");
+  if (response.status === 401) throw Object.assign(new Error("Appareil non appairé"), { status: 401 });
+  if (response.status === 404) throw Object.assign(new Error("Firmware de la centrale à mettre à jour"), { status: 404 });
   if (!response.ok) throw Object.assign(new Error("Erreur de la centrale (" + response.status + ")"), { status: response.status });
   return response.json();
 }
@@ -46,7 +49,8 @@ export function initCentral(app, onChange) {
       } catch (error) {
         again = false;
         app.save();
-        status(error.message + " · enregistré sur cet appareil", false);
+        if (error.status === 401) { forget(); status("Cet appareil n'est plus appairé avec la centrale : réglages → Connecter. Données enregistrées sur cet appareil.", false); }
+        else status(error.message + " · enregistré sur cet appareil", false);
       } finally {
         running = null;
         if (again) { again = false; soon(); }
@@ -56,29 +60,74 @@ export function initCentral(app, onChange) {
   }
   function soon() { clearTimeout(timer); timer = setTimeout(sync, 800); }
 
-  // Fait apparaître le code sur l'écran de la centrale (firmware 0.6.0 et suivants).
-  function askCode(reason) {
-    request("/api/v1/pairing/show", {})
-      .then(() => status(reason + "Le code s'affiche sur la centrale : saisis-le puis touche « Connecter ».", false))
-      .catch((error) => status(reason + (error.message === "Firmware de la centrale à mettre à jour" ? "Saisis le code affiché sur l'écran de la centrale." : error.message), false));
+  function forget() { key = ""; keep("home.key", ""); $("device-list").hidden = true; }
+
+  let attempt = 0;
+  // Code saisi (centrale avec écran) ou appui sur le bouton de la centrale.
+  function startPairing() {
+    const mine = ++attempt, code = $("pairing-key").value.trim().toUpperCase();
+    status(code ? "Appairage…" : "Appairage en cours…", false);
+    pair(request, {
+      name: deviceName, code,
+      onWaiting: () => status("Appuie sur le bouton BOOT de la centrale (ou saisis le code affiché sur son écran, puis touche « Connecter »).", false),
+      cancelled: () => mine !== attempt,
+    }).then((result) => {
+      if (!result) return;
+      key = result.token; keep("home.key", key); $("pairing-key").value = "";
+      status("Appareil appairé. Ferme les réglages pour synchroniser.", true);
+      devices();
+    }).catch((error) => { if (mine === attempt) status(error.status === 404 ? "Firmware de la centrale à mettre à jour (version 0.10 ou plus)." : error.message, false); });
+  }
+
+  const text = (tag, content, className) => Object.assign(document.createElement(tag), { textContent: content, className: className || "" });
+  // Liste des appareils connectés (les réglages sont réservés aux adultes).
+  async function devices() {
+    const box = $("device-list");
+    if (!server || !key) { box.hidden = true; return; }
+    try {
+      const list = (await request("/api/v1/devices")).devices;
+      $("devices").replaceChildren(...list.map((d) => {
+        const row = text("div", "", "row");
+        const label = text("span", "");
+        label.append(text("strong", d.name), text("span", ` ${d.self ? "· cet appareil · " : "· "}${seenText(d.seen_s_ago)}`, "muted"));
+        label.style.flex = "1";
+        const button = text("button", "Déconnecter", "button secondary");
+        button.type = "button";
+        button.onclick = async () => {
+          if (!confirm(d.self ? "Déconnecter cet appareil de la centrale ? Il faudra l'appairer de nouveau." : `Déconnecter « ${d.name} » ? Il faudra l'appairer de nouveau.`)) return;
+          try {
+            await request("/api/v1/devices/revoke", { id: d.id });
+            if (d.self) { forget(); status("Cet appareil est déconnecté de la centrale.", false); } else devices();
+          } catch (error) { status(error.message, false); }
+        };
+        row.append(label, button);
+        return row;
+      }));
+      box.hidden = false;
+    } catch (error) {
+      box.hidden = true;
+      if (error.status === 401) { forget(); status("Cet appareil n'est plus appairé avec la centrale : touche « Connecter ».", false); }
+    }
   }
 
   $("server-url").value = server;
-  $("pairing-key").value = key;
+  $("device-name").value = deviceName;
   $("save-server").addEventListener("click", () => {
     let value = $("server-url").value.trim().replace(/\/+$/, "");
     if (value && !/^https?:\/\//i.test(value)) value = "http://" + value;
     try { if (value) new URL(value); } catch { status("Adresse invalide", false); return; }
     server = value; $("server-url").value = value;
-    key = $("pairing-key").value.trim().toUpperCase(); $("pairing-key").value = key;
-    keep("home.server", server); keep("home.key", key);
+    deviceName = $("device-name").value.trim().slice(0, 24) || "Téléphone"; $("device-name").value = deviceName;
+    keep("home.server", server); keep("home.deviceName", deviceName);
+    if (!server) { status("Non configurée", false); return; }
+    // Un code saisi, ou pas encore appairé : on (re)lance l'appairage.
+    if (!key || $("pairing-key").value.trim()) { startPairing(); return; }
     status("Connexion…", false);
-    if (server && !key) { askCode(""); return; }
     // Depuis les réglages, on ne remplace pas la saisie en cours : synchro à la fermeture.
-    request("/api/v1/sync/snapshot").then(() => status("Connexion réussie. Ferme les réglages pour synchroniser.", true))
-      .catch((error) => error.message === "Code d'appairage refusé" ? askCode("Code refusé. ") : status(error.message, false));
+    request("/api/v1/sync/snapshot").then(() => { status("Connexion réussie. Ferme les réglages pour synchroniser.", true); devices(); })
+      .catch((error) => { if (error.status === 401) { forget(); startPairing(); } else status(error.message, false); });
   });
   window.addEventListener("online", soon);
   status(server && key ? "Connexion à la maison…" : "Non configurée", false);
-  return { sync, soon };
+  return { sync, soon, devices };
 }
