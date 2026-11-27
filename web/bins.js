@@ -102,6 +102,22 @@ export function initBins(app) {
     $("bins-out").onclick = () => { for (const c of due.items) upsert(overrides(), c.key, { out: !done }); app.changed(); renderHome(); };
   }
 
+  // Pour l'accueil : rappel en cours, ou ramassage des deux prochains jours.
+  function status() {
+    const now = new Date(), bins = binsConfig(app.config), today = localDate(now);
+    const names = (items) => items.map((c) => `${c.rule.icon} ${c.rule.name}`).join(" et ");
+    const due = reminder(bins, overrides(), now);
+    if (due) {
+      const done = due.items.every((c) => c.out);
+      return { done, title: done ? `✓ C'est sorti : ${names(due.items)}` : due.when === "morning" ? `Ramassage ce matin : ${names(due.items)} !` : `Ce soir, on sort : ${names(due.items)}`,
+        note: due.when === "eve" ? `Ramassage demain, ${frenchDate(due.items[0].date)}.` : "",
+        toggle: () => { for (const c of due.items) upsert(overrides(), c.key, { out: !done }); app.changed(); renderHome(); } };
+    }
+    const next = collections(bins, overrides(), today).find((c) => !c.skipped && !(c.date === today && now.getHours() >= 10));
+    if (!next) return null;
+    return { done: false, toggle: null, title: `Prochaine poubelle : ${next.rule.icon} ${next.rule.name}`, note: frenchDate(next.date) };
+  }
+
   function editor(c) {
     const date = el("input", { type: "date", value: c.date, ariaLabel: "Nouvelle date" });
     return el("div", { className: "bin-edit" },
@@ -162,5 +178,5 @@ export function initBins(app) {
   // Les ajustements anciens sont effacés pour que la liste reste petite.
   const limit = addDays(localDate(new Date()), -30);
   for (const key of Object.keys(overrides())) if (key.split(".").at(-1) < limit) remove(overrides(), key);
-  return { render, renderHome, close() { draft = null; editing = ""; } };
+  return { render, renderHome, status, close() { draft = null; editing = ""; } };
 }

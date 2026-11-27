@@ -12,6 +12,8 @@ import { initMap } from "./map.js";
 import { initContacts } from "./contacts.js";
 import { initBins } from "./bins.js";
 import { makeBackup, readBackup, restore, backupName, MAX_FILE } from "./backup.js";
+import { initDashboard } from "./dashboard.js";
+import { activeMembers } from "./moments.js";
 import { $, el } from "./dom.js";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -27,7 +29,7 @@ let lineSeed = new Date().getDate();
 let lastState = "";
 const meta = loadMeta();
 const lists = loadLists();
-let view = "home";
+let view = "dashboard";
 
 const routine = () => config.routines.find((r) => r.id === manualRoutine) || suggestRoutine(config, new Date());
 const member = () => config.members.find((m) => m.id === memberId) || config.members[0];
@@ -91,7 +93,7 @@ function renderAnchor(r, done) {
 }
 function renderPinNotice() {
   const hours = resetHoursLeft(config);
-  $("pin-notice").hidden = hours === null;
+  $("pin-notice").hidden = hours === null || (view !== "home" && view !== "dashboard");
   if (hours !== null) $("pin-notice-text").textContent = `Codes adultes effacés dans ${hours} h (code oublié).`;
 }
 let shownState = "";
@@ -299,7 +301,7 @@ function renderSettings() {
   }));
 }
 
-const VIEWS = ["home", "shopping", "weather", "map-view", "contacts", "bins", "settings"];
+const VIEWS = ["dashboard", "home", "shopping", "weather", "map-view", "contacts", "bins", "settings"];
 function show(name) {
   view = name;
   binsView?.close();
@@ -307,10 +309,26 @@ function show(name) {
   for (const tab of document.querySelectorAll("[data-view]")) tab.setAttribute("aria-current", String(tab.dataset.view === name));
   $("tabs").hidden = name === "settings";
   window.scrollTo(0, 0);
+  renderPinNotice();
   renderView();
 }
+// Pendant une routine on l'affiche, sinon l'accueil. On ne bascule qu'au changement de situation,
+// pour ne pas contrarier une navigation à la main.
+const running = () => activeMembers(config, progress.date === dateKey(new Date()) ? progress : { done: {} }, new Date());
+let wasRunning = false;
+function showMoment() {
+  const ids = running();
+  wasRunning = ids.length > 0;
+  if (wasRunning && !ids.includes(member().id)) memberId = ids[0];
+  if (wasRunning) manualRoutine = null;
+  show(wasRunning ? "home" : "dashboard");
+}
+function followMoment() {
+  if ((view === "home" || view === "dashboard") && running().length > 0 !== wasRunning) showMoment();
+}
 function renderView() {
-  if (view === "home") { render(); binsView.renderHome(); weather.render(); weather.refresh(); }
+  if (view === "dashboard") { renderDashboard(); weather.refresh(); }
+  else if (view === "home") { render(); binsView.renderHome(); weather.render(); weather.refresh(); }
   else if (view === "bins") binsView.render();
   else if (view === "weather") { weather.render(); weather.refresh(); }
   else if (view === "shopping") renderShopping();
@@ -337,6 +355,8 @@ const renderShopping = initShopping(shared);
 const renderMap = initMap(shared);
 const renderContacts = initContacts(shared);
 const binsView = initBins(shared);
+const renderDashboard = initDashboard(shared, { weather, bins: binsView, open: (name) => show(name) });
+shared.weatherChanged = () => { if (view === "dashboard") renderDashboard(); };
 const central = initCentral({
   get config() { return config; },
   set config(value) { config = value; },
@@ -347,7 +367,7 @@ const central = initCentral({
   save: saveAll,
 }, (result) => {
   if (result.replacedLocalConfig) alert("Les réglages avaient aussi changé sur un autre appareil : ceux de la maison ont été repris.");
-  if (result.configChanged || result.progressChanged || result.listsChanged) renderView();
+  if (result.configChanged || result.progressChanged || result.listsChanged) { followMoment(); renderView(); }
 });
 $("open-settings").onclick = () => {
   if (!adult()) return;
@@ -361,7 +381,7 @@ $("pin-cancel").onclick = () => { delete config.pinReset; meta.dirty = true; sav
 for (const tab of document.querySelectorAll("[data-view]")) tab.onclick = () => show(tab.dataset.view);
 $("weather-chip").onclick = () => show("weather");
 $("bins-chip").onclick = $("bins-dates").onclick = () => show("bins");
-$("cancel-settings").onclick = () => { show("home"); central.sync(); };
+$("cancel-settings").onclick = () => { showMoment(); central.sync(); };
 $("add-member").onclick = () => { draft.members.push({ id: uid(), name: "" }); renderSettings(); };
 $("holidays").onchange = (e) => (draft.holidays = e.target.checked);
 $("reset-config").onclick = () => { if (confirm("Revenir aux routines par défaut ?")) { draft = { ...defaultConfig(), pins: draft.pins }; renderPins(); renderSettings(); } };
@@ -374,7 +394,7 @@ $("save-settings").onclick = () => {
   saveMeta(meta);
   config = draft; manualRoutine = null; reaction = null;
   if (!saveConfig(config)) { alert("Impossible d'enregistrer sur cet appareil."); return; }
-  show("home"); central.sync();
+  showMoment(); central.sync();
 };
 $("backup-export").onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(makeBackup(config, lists), null, 1)], { type: "application/json" }));
@@ -394,7 +414,7 @@ $("backup-file").onchange = async (e) => {
   const when = new Date(backup.date).toLocaleDateString("fr-FR", { dateStyle: "long" });
   const count = (n) => Object.keys(backup.lists[n]).length;
   if (!confirm(`Restaurer la sauvegarde du ${when} ?\n${backup.config.routines.length} routines, ${count("contacts")} contact(s), ${count("places")} lieu(x), ${count("shopping")} article(s).\n\nLes réglages et routines actuels seront remplacés, sur tous les téléphones reliés. Les contacts, lieux et courses ajoutés depuis sont gardés.`)) return;
-  show("home");
+  showMoment();
   await central.sync(); // part de la dernière version de la maison, pour que la restauration l'emporte
   config = restore(config, lists, backup);
   meta.dirty = true; memberId = config.members[0].id; manualRoutine = null; reaction = null;
@@ -404,11 +424,24 @@ $("backup-file").onchange = async (e) => {
 $("routine-select").onchange = (e) => { manualRoutine = e.target.value; reaction = null; render(); };
 $("reset-day").onclick = () => { if (!adult()) return; const d = doneMap(); for (const k in d) if (!k.startsWith("_at:")) d[k] = mark(d[k], false); saveProgress(progress); reaction = null; render(); central.soon(); };
 
-show("home");
+showMoment();
 central.sync();
-function tick() { if (!document.hidden && view !== "settings") { if (expireReset(config)) { meta.dirty = true; saveAll(); } if (view === "home") { render(); binsView.renderHome(); weather.render(); weather.refresh(); } central.sync(); } }
+function tick() {
+  if (document.hidden || view === "settings") return;
+  if (expireReset(config)) { meta.dirty = true; saveAll(); }
+  if (dateKey(new Date()) !== today) render(); // nouveau jour
+  followMoment();
+  if (view === "home") { render(); binsView.renderHome(); weather.render(); weather.refresh(); }
+  else if (view === "dashboard") { renderPinNotice(); renderDashboard(); weather.refresh(); }
+  central.sync();
+}
 setInterval(tick, 15000);
 setInterval(tickTiming, 1000);
 $("timer-go").onclick = () => { const s = evaluate(routine(), doneMap(), new Date()).next; if (s) focusStep(s); };
-document.addEventListener("visibilitychange", tick);
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 5 * 60000 && (view === "home" || view === "dashboard")) { reaction = null; showMoment(); }
+  tick();
+});
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.error));

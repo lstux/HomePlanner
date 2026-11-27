@@ -58,6 +58,7 @@ export function initWeather(app) {
     } catch { error = "Météo indisponible pour le moment."; }
     loading = false;
     render();
+    app.weatherChanged?.();
   }
 
   // Journée d'aujourd'hui dans la prévision en cache (undefined si trop ancienne).
@@ -119,5 +120,5 @@ export function initWeather(app) {
     (pos) => choose("Ma position", pos.coords.latitude, pos.coords.longitude),
     () => { error = "Position indisponible."; render(); }, { timeout: 10000 });
 
-  return { render, refresh };
+  return { render, refresh, days };
 }

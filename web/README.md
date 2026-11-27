@@ -12,6 +12,7 @@ Application statique, sans étape de build : servir ce dossier sur un site **HTT
 
 - Routines matin / soir / vacances, proposées selon le jour et l'heure.
 - Étapes à cocher, compte à rebours, état (avance, juste, retard).
+- Page d'accueil entre deux routines (heure, mascotte du moment, météo du jour et du lendemain, poubelles, courses, prochaine routine) ; la routine s'affiche d'elle-même d'une heure avant l'échéance, ou dès la première case cochée, à 15 min après.
 - Réactions du renard et du lapin ; idées d'activités calmes (sans écran) s'il reste de la marge.
 - Plusieurs enfants, routines modifiables.
 - Courses : liste partagée, cochable par tout le monde.

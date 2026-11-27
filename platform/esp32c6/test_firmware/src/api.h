@@ -16,3 +16,7 @@ const String& hpKey();
 void hpApiRegister(WebServer& server, home::JournaledSyncCore*& journal);
 // CORS headers shared by every API response.
 void hpCors(WebServer& server);
+
+// Fournis par main.cpp : affichage du code d'appairage.
+void hpPairingRequested(uint32_t client);
+void hpClientAuthorized(uint32_t client);
