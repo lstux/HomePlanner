@@ -114,7 +114,7 @@ bool boardInit() {
   delay(100);
   if (!sent || !band || !initLcd()) return false;
   lcdOk = true;
-  drawFill(C_BLACK);
+  drawFill(hpTheme().bg);
   lcdBacklight(70);
   return true;
 }
