@@ -4,7 +4,11 @@ Routine du jour au poignet : étapes à cocher, compte à rebours, renard et lap
 avec la centrale ESP32-C6. Comme l'app Slovingo, elle se greffe sur le firmware
 [T-Watch-2020](https://github.com/lstux/T-Watch-2020) sans le modifier.
 
-**Statut : compilée en CI (v1, v2, v3), jamais essayée sur une montre.**
+**Statut : compilée en CI (v1, v2, v3) ; première version essayée sur une T-Watch 2020, écran « maintenant » pas encore.**
+
+![Aperçu simulé des écrans](apercu.png)
+
+Aperçu rendu sur ordinateur avec LVGL 7.11 (routine fictive).
 
 ## Installer depuis le navigateur
 
@@ -43,14 +47,21 @@ Ou préparer `data/homeplanner.json` d'après `conf/homeplanner.json.example`, p
 
 ## Utiliser
 
-- Toucher une étape la coche ou la décoche (envoi après quelques secondes) ; l'ordre est libre.
-- Un appui long sur une étape lance son minuteur (« je fais celle-là ») ; sinon « C'est parti » lance
-  la première, et chaque étape validée lance la suivante. La flèche » montre l'étape en cours.
-- Soir : le compte à rebours vise l'heure fixe du repas (décalée depuis un téléphone), et le temps libre
-  affiche ce qui reste avant.
-- Jauge : au milieu « pile poil », à droite l'avance, à gauche le retard (±15 min).
-- Bouton du haut : changer de routine ; bouton du bas (s'il y a plusieurs enfants) : changer d'enfant.
-- La montre garde réglages et coches pour fonctionner sans la maison ; elle ne modifie jamais les réglages.
+L'écran principal dit à l'enfant, sans rien faire défiler :
+
+- **en avance ou en retard** (texte et jauge : au milieu « pile poil », à droite l'avance, à gauche le retard, ±15 min) ;
+- **l'étape en cours**, son compte à rebours en gros (`+1:30` quand il est dépassé) et la mascotte ;
+- **un seul gros bouton** : « C'est parti » lance le minuteur, « Fait ✓ » valide et passe à la suivante. Deux
+  appuis rapprochés ne valident qu'une étape.
+- En bas : quitter, l'heure, les réglages. Quand tout est fait, le renard et le lapin fêtent ça.
+
+En faisant glisser vers le haut : le temps avant le départ, toutes les étapes (toucher pour cocher ou décocher,
+appui long pour « je fais celle-là »), le changement de routine ou d'enfant et « Synchroniser ».
+
+La montre **reste sur Home** quand l'écran s'éteint (réglage « block maintile » activé tant que l'app est
+ouverte, puis remis comme avant). Au réveil, elle revient sur l'écran principal et se resynchronise (au plus
+une fois par minute). Elle garde réglages et coches pour fonctionner sans la maison ; elle ne modifie jamais
+les réglages.
 
 ## Développement
 
