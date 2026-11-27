@@ -41,6 +41,8 @@ The firmware initializes the display first, then attempts the saved Wi-Fi networ
 
 Connect a phone or PC to that network, enter the home Wi-Fi SSID and password, then save. The device stores up to five networks in NVS and restarts. The setup AP password is currently a shared prototype default; this must be made configurable before wider deployment.
 
+The screen goes to sleep after 15 minutes without activity (button, touch, data received from a phone or the watch, pairing); a sync that changes nothing does not count. It stays on during routines (as defined above) and while Wi-Fi setup or storage needs attention. Any activity wakes it; a screen switched off by hand stays off until pressed.
+
 BOOT button: short press shows the information page for 30 s; hold 2 s to switch the screen off or on; hold 5 s to clear saved Wi-Fi settings and restart into setup mode. Serial monitor is 115200 baud; `s` prints status, `compact` compacts the journal now, `x` clears Wi-Fi settings, and `ota-token <secret>` stores the OTA token in NVS.
 
 If the Wi-Fi link drops, the device waits 30 seconds before opening the setup access point. While nobody is connected to that access point, saved networks are retried every 2 minutes.

@@ -74,7 +74,28 @@ static void testState() {
   t.tap(TAP_CODE, 73000);
   t.tap(TAP_ELSEWHERE, 74000);  // et ferme le code
   assert(t.mode(false, 74000) == IDLE);
+  // veille sans activité
+  ScreenState v;
+  assert(v.mode(false, SLEEP_MS - 1) == IDLE && v.mode(false, SLEEP_MS) == OFF);
+  assert(v.mode(false, SLEEP_MS + 1, true) == IDLE);  // routine : allumé
+  assert(v.mode(false, SLEEP_MS + 2) == OFF);         // finie : de nouveau en veille
+  assert(v.mode(true, SLEEP_MS + 3) == FAULT);        // panne : allumé
+  assert(v.mode(false, SLEEP_MS + 4) == OFF);
+  v.release(200, 2000000);  // l'appui rallume sans ouvrir les infos
+  assert(v.mode(false, 2000000) == IDLE && v.mode(false, 2000000 + SLEEP_MS) == OFF);
+  v.tap(TAP_ELSEWHERE, 4000000);  // le toucher aussi
+  assert(v.mode(false, 4000000) == IDLE);
+  v.activity(4600000);  // donnée reçue : le délai repart
+  assert(v.mode(false, 4000000 + SLEEP_MS) == IDLE && v.mode(false, 4600000 + SLEEP_MS) == OFF);
+  v.askPairing(3, 6000000);
+  assert(v.mode(false, 6000000) == PAIRING);
+  v.authorized(3);
+  assert(v.mode(false, 6000001) == IDLE);
+  v.release(HOLD_MS, 6000002);  // éteint à la main : une donnée ne rallume pas
+  v.activity(6000003);
+  assert(v.mode(false, 6000003, true) == OFF);
   // débordement de millis()
+  s.activity(0xFFFFFF00u);
   s.release(200, 0xFFFFFF00u);
   assert(s.mode(false, 100) == INFO);
 }

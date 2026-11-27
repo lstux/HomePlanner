@@ -40,6 +40,8 @@ void refreshLife(){
   if(!journal)return;
   const uint64_t current=journal->core().lastSequence();
   const bool changed=current!=sequence;
+  // Une donnée reçue (case cochée, ajout...) rallume l'écran ; la synchro sans changement n'écrit rien.
+  if(changed&&sequence!=UINT64_MAX)screen.activity(millis());
   if(!changed&&millis()-last<5000)return;
   sequence=current;last=millis();
   std::map<std::string,std::string> progress;
@@ -60,9 +62,10 @@ void refreshLife(){
   hpui::Moment now;now.date=date;now.weekday=t.tm_wday;now.minute=t.tm_hour*60+t.tm_min;now.ms=static_cast<int64_t>(tv.tv_sec)*1000+tv.tv_usec/1000;
   views=hpui::routineViews(family,progress,now);
 }
+hpui::Mode screenMode(){return screen.mode(apMode||!sdOk||!journalOk,millis(),!views.empty());}
 // Redessine seulement quand le contenu change.
 void drawScreen(){
-  const hpui::Mode mode=screen.mode(apMode||!sdOk||!journalOk,millis());
+  const hpui::Mode mode=screenMode();
   const String ip=apMode?WiFi.softAPIP().toString():WiFi.localIP().toString(),ssid=apMode?hpConfig.apSsid:WiFi.SSID();
   struct tm t={};const time_t now=time(nullptr);const bool timeKnown=now>1700000000;if(timeKnown)localtime_r(&now,&t);
   const int minute=timeKnown?t.tm_hour*60+t.tm_min:-1;
@@ -119,7 +122,7 @@ void maintainWifi(){static uint32_t lostAt=0,lastRetry=0;uint32_t now=millis();i
 void handleButton(){bool down=digitalRead(HP_PIN_BUTTON)==LOW;if(down){if(!bootWasDown){bootWasDown=true;bootButtonAt=millis();}else if(millis()-bootButtonAt>=hpui::CLEAR_MS){Serial.println("[CFG] clearing Wi-Fi settings");hpConfigClear();hpConfigSave();delay(300);ESP.restart();}}else if(bootWasDown){bootWasDown=false;screen.release(millis()-bootButtonAt,millis());drawScreen();}}
 #if HP_HAS_TOUCH
 // Un toucher compte au relâchement ; un point marque l'endroit lu, pour vérifier la calibration.
-void handleTouch(){static uint32_t lastRead=0,lastDown=0;static bool down=false;static int x=0,y=0,rawA=0,rawB=0;if(millis()-lastRead<25)return;lastRead=millis();int nx,ny,na,nb;if(touchRead(nx,ny,na,nb)){down=true;lastDown=millis();x=nx;y=ny;rawA=na;rawB=nb;return;}if(!down||millis()-lastDown<80)return;down=false;const bool fault=apMode||!sdOk||!journalOk;const hpui::Mode mode=screen.mode(fault,millis());screen.tap(hpTapZone(mode,apMode,x,y),millis());Serial.printf("[TOUCH] x=%d y=%d raw=%d,%d\n",x,y,rawA,rawB);drawScreen();if(screen.mode(fault,millis())!=hpui::OFF)drawRect(x-3,y-3,7,7,hpTheme().accent);}
+void handleTouch(){static uint32_t lastRead=0,lastDown=0;static bool down=false;static int x=0,y=0,rawA=0,rawB=0;if(millis()-lastRead<25)return;lastRead=millis();int nx,ny,na,nb;if(touchRead(nx,ny,na,nb)){down=true;lastDown=millis();x=nx;y=ny;rawA=na;rawB=nb;return;}if(!down||millis()-lastDown<80)return;down=false;const hpui::Mode mode=screenMode();screen.tap(hpTapZone(mode,apMode,x,y),millis());Serial.printf("[TOUCH] x=%d y=%d raw=%d,%d\n",x,y,rawA,rawB);drawScreen();if(screenMode()!=hpui::OFF)drawRect(x-3,y-3,7,7,hpTheme().accent);}
 #endif
 }
 void hpPairingRequested(uint32_t client){screen.askPairing(client,millis());}
