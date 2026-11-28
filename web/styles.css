@@ -121,8 +121,16 @@ ul { list-style: none; padding: 0; }
 .bin-edit input { flex: 1; }
 .weather-chip { width: 100%; text-align: left; border: 0; border-radius: 14px; background: #e5e9fb; padding: 10px 14px; margin-bottom: 10px; font-size: 14px; }
 .item { display: flex; gap: 8px; align-items: center; }
-.item .step { padding: 10px 14px; }
-.item .mini { flex: none; }
+.item { gap: 6px; }
+.item .step { flex: 1; min-width: 0; width: auto; padding: 6px 12px; border-radius: 12px; gap: 8px; }
+.item .step-text strong { font-size: 16px; }
+.item .check { width: 24px; height: 24px; border-width: 2px; font-size: 16px; }
+.item .mini { flex: none; min-width: 34px; height: 34px; padding: 0; }
+.item .grip { width: 30px; height: 34px; font-size: 16px; }
+.item.editing input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; font-size: 16px; }
+.item.editing .ok { background: #cfe8c9; font-weight: 800; padding: 0 10px; }
+.item.dragging { outline: 3px solid #f28c28; border-radius: 12px; opacity: .85; }
+#shopping-list.steps { gap: 5px; }
 #shopping-form input, #town-form input, .search input { flex: 1; }
 .search { margin-top: 12px; }
 .center { text-align: center; }
@@ -185,8 +193,9 @@ form.panel .row { flex-wrap: wrap; }
 .day-events { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: center; gap: 4px; padding: 3px 0; }
 .holiday { font-size: 12px; font-weight: 800; color: #5f726a; align-self: center; }
 .event { border: 0; border-radius: 8px; padding: 4px 8px; font-size: 13px; font-weight: 700; text-align: left; color: #20312d; max-width: 100%; overflow-wrap: anywhere; }
-.event.maybe { outline: 2px dashed #5f726a; outline-offset: -2px; }
-.bar { flex: none; width: 8px; margin: 0; }
+.event.maybe { outline: 2px dashed #2f423c; outline-offset: -2px; }
+.bar { flex: none; width: 10px; margin: 0 1px; border-radius: 3px; }
+.cont { align-self: center; font-size: 12px; font-weight: 700; color: #3f524b; border-left: 4px solid; padding-left: 6px; }
 .big-event { display: block; width: 100%; font-size: 16px; padding: 9px 12px; margin: 6px 0; }
 .big-event small { display: block; font-weight: 600; font-size: 12px; opacity: .8; }
 .agenda-day { background: #fff; border: 1px solid #e3e9e1; border-radius: 16px; padding: 10px 14px; margin-bottom: 10px; }
@@ -222,7 +231,7 @@ form.panel .row { flex-wrap: wrap; }
   .month-day { min-height: 30px; }
   .months .day-number { width: 40px; gap: 4px; padding-right: 2px; }
   .months .event { padding: 3px 6px; font-size: 12px; }
-  .months .bar { width: 6px; }
+  .months .bar { width: 7px; }
   .months .month-day { scroll-margin: 100px; }
   #shopping-list, #contact-list, #bin-list { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); display: grid; gap: 10px; align-content: start; }
   #bin-list > li, #contact-list > li { margin: 0; }

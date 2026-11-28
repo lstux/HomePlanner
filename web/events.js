@@ -8,7 +8,7 @@ export const EVENT_LISTS = Array.from({ length: 8 }, (_, i) => `events${i}`);
 export const KEEP_PAST_DAYS = 400;
 
 export const PALETTE = ["#ffd3a8", "#b9e0ff", "#c9efc0", "#f6c4e0", "#ddd0ff", "#fff0a6", "#ffc4bc", "#b8ece4", "#e0d2c0", "#d5dbe6"];
-export const FAMILY_COLOR = "#e4ebe2";
+export const FAMILY_COLOR = "#b8c7bb";
 
 // Toute la famille : les enfants (qui ont des routines) puis les adultes, chacun avec sa couleur.
 export function persons(config) {
@@ -22,6 +22,19 @@ export function background(event, people) {
   if (colors.length === 1) return colors[0];
   const part = 100 / colors.length;
   return `linear-gradient(115deg, ${colors.map((c, i) => `${c} ${Math.round(i * part)}% ${Math.round((i + 1) * part)}%`).join(", ")})`;
+}
+
+// Couleur des traits de côté : la teinte de la personne en plus soutenue, pour qu'elle ressorte sur le fond (week-end, aujourd'hui).
+export function darken(hex, factor = 0.68) {
+  const n = parseInt(hex.slice(1), 16);
+  return "#" + [16, 8, 0].map((shift) => Math.round(((n >> shift) & 255) * factor).toString(16).padStart(2, "0")).join("");
+}
+export function barBackground(event, people) {
+  const colors = (event.who || []).map((id) => people.find((p) => p.id === id)?.color).filter(Boolean).map((c) => darken(c));
+  if (!colors.length) return darken(FAMILY_COLOR, 0.62);
+  if (colors.length === 1) return colors[0];
+  const part = 100 / colors.length;
+  return `linear-gradient(180deg, ${colors.map((c, i) => `${c} ${Math.round(i * part)}% ${Math.round((i + 1) * part)}%`).join(", ")})`;
 }
 
 const isDate = (d) => typeof d === "string" && /^\d{4}-\d\d-\d\d$/.test(d) && !Number.isNaN(Date.parse(d + "T00:00:00Z")) && addDays(d, 0) === d;
@@ -49,7 +62,7 @@ export function cleanEvent(draft) {
   };
 }
 
-const daysBetween = (a, b) => Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+export const daysBetween = (a, b) => Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
 // Même jour une autre année ; le 29 février retombe le 28.
 function inYear(date, year) {
   const candidate = `${year}${date.slice(4)}`;

@@ -2,7 +2,7 @@
 import { $, el, button } from "./dom.js";
 import { upsert, remove, newId } from "./lists.js";
 import { addDays, holidays } from "./bins.js";
-import { allEvents, background, cleanEvent, lanes, localDate, occurrences, onDay, persons, pruneEvents, roomiest } from "./events.js";
+import { allEvents, background, barBackground, cleanEvent, daysBetween, lanes, localDate, occurrences, onDay, persons, pruneEvents, roomiest } from "./events.js";
 
 const format = (iso, options) => new Date(iso + "T12:00:00Z").toLocaleDateString("fr-FR", { ...options, timeZone: "UTC" }).replace(/\b1 (?=\p{L})/u, "1er ");
 export const dayName = (iso) => format(iso, { weekday: "long", day: "numeric", month: "long" });
@@ -66,13 +66,14 @@ export function initAgenda(app) {
       const bars = Array.from({ length: count }, (_, lane) => {
         const o = here.find((x) => columns.get(x) === lane);
         const bar = el("i", { className: "bar" + (o ? "" : " empty") });
-        if (o) { bar.style.background = background(o.event, people); bar.title = o.event.title; bar.onclick = (e) => { e.stopPropagation(); edit(o.event); }; }
+        if (o) { bar.style.background = barBackground(o.event, people); bar.title = o.event.title; bar.onclick = (e) => { e.stopPropagation(); edit(o.event); }; }
         return bar;
       });
       const row = el("li", { className: "month-day" + (weekday(date) % 6 === 0 || holiday ? " off" : "") + (date === today ? " today" : "") + (weekday(date) === 1 ? " monday" : "") },
         el("button", { type: "button", className: "day-number", ariaLabel: `Voir le ${dayName(date)}`, onclick: (e) => { e.stopPropagation(); cursor = date; mode = "day"; render(); } },
           el("span", { textContent: "DLMMJVS"[weekday(date)] }), el("strong", { textContent: Number(date.slice(8)) })),
-        el("div", { className: "day-events" }, holiday ? el("span", { className: "holiday", textContent: holiday }) : null, ...named.map((o) => chip(o, people))),
+        el("div", { className: "day-events" }, holiday ? el("span", { className: "holiday", textContent: holiday }) : null, ...named.map((o) => chip(o, people)),
+          ...here.filter((o) => !named.includes(o)).map((o) => el("span", { className: "cont", textContent: `↳ ${o.event.title} · jour ${daysBetween(o.start, date) + 1}/${daysBetween(o.start, o.end) + 1}`, style: `border-color:${barBackground(o.event, people).startsWith("#") ? barBackground(o.event, people) : "#5f726a"}` }))),
         ...bars);
       row.onclick = () => edit({ date });
       return row;
@@ -121,7 +122,9 @@ export function initAgenda(app) {
     $("event-heading").textContent = editing.id ? "Modifier l'événement" : "Nouvel événement";
     $("event-title").value = event.title || "";
     $("event-date").value = event.date || localDate(new Date());
-    $("event-end").value = event.end || "";
+    $("event-end").value = event.end || $("event-date").value;
+    $("event-end").min = $("event-date").value;
+    editing.lastStart = $("event-date").value;
     $("event-time").value = event.time || "";
     $("event-maybe").checked = !!event.maybe;
     $("event-yearly").checked = !!event.yearly;
@@ -146,6 +149,13 @@ export function initAgenda(app) {
     editing = null; render(); window.scrollTo(0, back);
   }
 
+  // Choisir le début ramène la fin au même jour : le calendrier de la fin s'ouvre au bon mois.
+  $("event-date").onchange = () => {
+    const start = $("event-date").value, end = $("event-end");
+    end.min = start;
+    if (start && (!end.value || end.value < start || end.value === editing?.lastStart)) end.value = start;
+    if (editing) editing.lastStart = start;
+  };
   $("agenda-form").onsubmit = (e) => {
     e.preventDefault();
     let fields;
